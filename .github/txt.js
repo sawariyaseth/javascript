@@ -1,8 +1,7 @@
+#!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-
-#!/usr/bin/env node
 
 
 const TODO_FILE = path.join(__dirname, 'todos.json');
