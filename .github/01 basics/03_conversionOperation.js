@@ -76,3 +76,27 @@ num1 = num2 = num3 = 2 + 2
 let gamecounter = 100
 ++gamecounter;
 console.log(gamecounter);
+
+/*
+🔑 Prefix vs Postfix Operators in JavaScript
+1. Prefix (++x / --x)
+The variable is incremented or decremented first.
+
+The updated value is then returned.
+
+Example:
+let a = 3;
+let b = ++a; // a becomes 4, b = 4
+console.log(a, b); // Output: 4 4
+
+*/ 
+/* 2. Postfix (x++ / x--)
+The current value of the variable is returned first.
+
+The variable is then incremented or decremented.
+
+Example:
+let a = 3;
+let b = a++; // b = 3, then a becomes 4
+console.log(a, b); // Output: 4 3
+*/  
