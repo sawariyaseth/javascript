@@ -20,7 +20,7 @@ let valueInNumber = Number(score);
 console.log("valueInNumber: ", valueInNumber, typeof valueInNumber);
 
 // Declare a variable 'isLoggedIn' with a string value
-let isLoggedIn = "hitesh";
+let isLoggedIn = "harshit";
 
 // Convert 'isLoggedIn' into a boolean
 let booleanIsLoggedIn = Boolean(isLoggedIn);
@@ -54,7 +54,7 @@ console.log(negValue);
 // console.log(2%3);
 
 let str1 = "hello"
-let str2 = " hitesh"
+let str2 = " hari"
 
 let str3 = str1 + str2
 // console.log(str3);

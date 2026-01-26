@@ -10,7 +10,7 @@ class ParentClass {
 class RouletteEngine extends ParentClass {
   // Improve  the constructor to allow dynamic initialization of history
 
-  constructor(history = [ 
+  constructor(history = [ 13, 11, 15, 10, 5, 32, 36, 36, 2, 4, 2, 13, 11, 22, 1, 6, 22, 33, 1, 7, 11, 4, 4, 24, 29, 18, 12, 24, 0
       ]) {  
     super();
     this.history = history;

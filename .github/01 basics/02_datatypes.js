@@ -5,7 +5,7 @@ console.log(3
     3);
 // code readabilty should be high 
 console.log("harshit");
-let name= "hitesh"
+let name= "harsit"
 let age= 21;
 let isloggedIn=false;
 // number => 2 **53 -1
