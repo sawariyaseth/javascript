@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roulette Analyst v3</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #f6f8fb;
+      color: #1f2933;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+      margin-bottom: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      font-family: monospace;
+      border-radius: 8px;
+      border: 1px solid #d2d6dc;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    button.secondary {
+      background: #10b981;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .metrics-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+    }
+    .metrics-list li {
+      background: #f1f5f9;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #e3e8ef;
+    }
+    .ai-output {
+      border: 1px solid #d2d6dc;
+      border-radius: 8px;
+      background: #0b1727;
+      color: #e5e7eb;
+      min-height: 120px;
+      padding: 12px;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    .hint {
+      color: #4b5563;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Roulette Analyst v3</h1>
+  <p class="hint">
+    Paste recent spins (comma/space separated). Serve this file from <code>http://localhost</code> (e.g. <code>python -m http.server 8000</code>)
+    so it can call <code>http://localhost:11434/api/chat</code> (Ollama).
+  </p>
+
+  <div class="card">
+    <h2>Spin history</h2>
+    <textarea id="spins-input"></textarea>
+    <div style="margin-top: 10px;">
+      <button id="update-btn">Update charts &amp; metrics</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Metrics</h2>
+    <ul class="metrics-list">
+      <li>Longest red streak: <strong id="metric-red">-</strong></li>
+      <li>Longest black streak: <strong id="metric-black">-</strong></li>
+      <li>Longest low (1-18) streak: <strong id="metric-low">-</strong></li>
+      <li>Longest high (19-36) streak: <strong id="metric-high">-</strong></li>
+      <li>Chi-square vs uniform: <strong id="metric-chi">-</strong></li>
+      <li>Runs test (red/black): <strong id="metric-runs">-</strong></li>
+    </ul>
+  </div>
+
+  <div class="card grid">
+    <div>
+      <h2>Number distribution</h2>
+      <canvas id="distribution-chart" height="220"></canvas>
+    </div>
+    <div>
+      <h2>AI insights</h2>
+      <div style="margin-bottom: 8px;">
+        <button class="secondary" id="explain-btn">Explain charts</button>
+        <button id="anomaly-btn">Detect anomalies</button>
+      </div>
+      <div class="ai-output" id="ai-output">AI responses will appear here.</div>
+    </div>
+  </div>
+
+  <script>
+    const redNumbers = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+    const blackNumbers = new Set([2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]);
+
+    const defaultSpins = [
+      12, 23, 5, 0, 7, 19, 32, 8, 17, 21, 14, 3, 28, 31, 35, 10, 5, 18, 21, 9,
+      14, 25, 27, 30, 12, 0, 36, 5, 11, 24, 2, 16, 18, 20, 19, 32, 6, 1, 9, 17,
+      14, 23, 25, 8, 30, 12, 0, 7, 21, 18, 33, 29, 4, 15, 19, 27, 31, 10, 2, 5
+    ];
+
+    function numberColor(n) {
+      if (redNumbers.has(n)) return 'red';
+      if (blackNumbers.has(n)) return 'black';
+      return 'green';
+    }
+
+    function parseSpins() {
+      const raw = document.getElementById('spins-input').value;
+      return raw
+        .split(/[\s,]+/)
+        .map((n) => parseInt(n, 10))
+        .filter((n) => !Number.isNaN(n) && n >= 0 && n <= 36);
+    }
+
+    function longestStreak(spins, predicate) {
+      let best = 0;
+      let current = 0;
+      spins.forEach((n) => {
+        if (predicate(n)) {
+          current += 1;
+          best = Math.max(best, current);
+        } else {
+          current = 0;
+        }
+      });
+      return best;
+    }
+
+    function runsTest(spins) {
+      const filtered = spins.map(numberColor).filter((c) => c === 'red' || c === 'black');
+      const n1 = filtered.filter((c) => c === 'red').length;
+      const n2 = filtered.filter((c) => c === 'black').length;
+      if (filtered.length < 2 || n1 === 0 || n2 === 0) {
+        return { runs: filtered.length, zScore: 0, note: 'Insufficient red/black data' };
+      }
+      let runs = 1;
+      for (let i = 1; i < filtered.length; i += 1) {
+        if (filtered[i] !== filtered[i - 1]) runs += 1;
+      }
+      const expectedRuns = ((2 * n1 * n2) / (n1 + n2)) + 1;
+      const variance = (2 * n1 * n2 * (2 * n1 * n2 - n1 - n2)) / (((n1 + n2) ** 2) * (n1 + n2 - 1));
+      const zScore = variance > 0 ? (runs - expectedRuns) / Math.sqrt(variance) : 0;
+      return { runs, zScore, note: '' };
+    }
+
+    function chiSquare(spins) {
+      const total = spins.length;
+      if (total === 0) return 0;
+      const expected = total / 37;
+      let chi = 0;
+      for (let n = 0; n <= 36; n += 1) {
+        const observed = spins.filter((x) => x === n).length;
+        chi += ((observed - expected) ** 2) / expected;
+      }
+      return chi;
+    }
+
+    function computeMetrics(spins) {
+      const longestRed = longestStreak(spins, (n) => numberColor(n) === 'red');
+      const longestBlack = longestStreak(spins, (n) => numberColor(n) === 'black');
+      const longestLow = longestStreak(spins, (n) => n >= 1 && n <= 18);
+      const longestHigh = longestStreak(spins, (n) => n >= 19 && n <= 36);
+      const chi = chiSquare(spins);
+      const runs = runsTest(spins);
+
+      const distribution = Array.from({ length: 37 }, (_, n) => ({
+        number: n,
+        count: spins.filter((x) => x === n).length
+      }));
+
+      return {
+        longestRed,
+        longestBlack,
+        longestLow,
+        longestHigh,
+        chiSquare: chi,
+        runs,
+        distribution
+      };
+    }
+
+    function renderMetrics(metrics) {
+      document.getElementById('metric-red').textContent = metrics.longestRed;
+      document.getElementById('metric-black').textContent = metrics.longestBlack;
+      document.getElementById('metric-low').textContent = metrics.longestLow;
+      document.getElementById('metric-high').textContent = metrics.longestHigh;
+      document.getElementById('metric-chi').textContent = metrics.chiSquare.toFixed(2);
+      const runsText = metrics.runs.note
+        ? metrics.runs.note
+        : `${metrics.runs.runs} runs (z=${metrics.runs.zScore.toFixed(2)})`;
+      document.getElementById('metric-runs').textContent = runsText;
+    }
+
+    let distributionChart;
+    function renderChart(metrics) {
+      const canvas = document.getElementById('distribution-chart');
+      const labels = metrics.distribution.map((d) => d.number);
+      const data = metrics.distribution.map((d) => d.count);
+
+      // Fallback drawing when Chart.js cannot be loaded (e.g., offline or blocked).
+      if (typeof Chart === 'undefined') {
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width || canvas.offsetWidth || 600;
+        const height = canvas.height || 220;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.clearRect(0, 0, width, height);
+        const max = Math.max(...data, 1);
+        const barWidth = width / labels.length;
+        ctx.fillStyle = '#2563eb88';
+        data.forEach((val, idx) => {
+          const barHeight = (val / max) * (height - 20);
+          const x = idx * barWidth;
+          const y = height - barHeight;
+          ctx.fillRect(x + 1, y, barWidth - 2, barHeight);
+        });
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('Fallback chart (Chart.js unavailable)', 8, 14);
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (distributionChart) {
+        distributionChart.data.labels = labels;
+        distributionChart.data.datasets[0].data = data;
+        distributionChart.update();
+        return;
+      }
+      distributionChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Observations',
+            data,
+            backgroundColor: '#2563eb88',
+            borderColor: '#2563eb',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function getMetricsSummary(spins, metrics) {
+      const total = spins.length;
+      const sample = spins.slice(-40);
+      const topHot = [...metrics.distribution]
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5)
+        .map((d) => `${d.number}:${d.count}`);
+      return [
+        `Total spins: ${total}`,
+        `Longest red streak: ${metrics.longestRed}`,
+        `Longest black streak: ${metrics.longestBlack}`,
+        `Longest low streak: ${metrics.longestLow}`,
+        `Longest high streak: ${metrics.longestHigh}`,
+        `Chi-square: ${metrics.chiSquare.toFixed(2)} (df=36, higher = more deviation)`,
+        `Runs (red/black): ${metrics.runs.runs}, z=${metrics.runs.zScore.toFixed(2)}`,
+        `Top numbers: ${topHot.join(', ')}`,
+        `Recent spins sample: ${sample.join(', ')}`
+      ].join('\n');
+    }
+
+    async function callAI(kind) {
+      const spins = parseSpins();
+      const metrics = computeMetrics(spins);
+      const summary = getMetricsSummary(spins, metrics);
+      const prompt = kind === 'anomaly'
+        ? `Detect anomalies in roulette spins. Flag unusual streaks, chi-square deviations, and runs test z-scores. Provide concise notes and cautions about randomness.\n\n${summary}`
+        : `Explain the roulette charts and metrics in plain English. Keep it brief and actionable for a casual player.\n\n${summary}`;
+
+      const output = document.getElementById('ai-output');
+      output.textContent = 'Contacting Ollama on http://localhost:11434...';
+      try {
+        const res = await fetch('http://localhost:11434/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'llama3.1:8b',
+            stream: false,
+            messages: [
+              { role: 'system', content: 'You are a roulette statistics explainer. Be concise, highlight anomalies, and avoid gambling advice beyond statistical interpretation.' },
+              { role: 'user', content: prompt }
+            ]
+          })
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} - ${res.statusText}`);
+        }
+        const data = await res.json();
+        const content = data.message?.content || JSON.stringify(data, null, 2);
+        output.textContent = content.trim();
+      } catch (err) {
+        output.textContent = `Could not reach Ollama. Ensure it is running locally and CORS allows this origin.\n${err.message}`;
+      }
+    }
+
+    function hydrate() {
+      const textarea = document.getElementById('spins-input');
+      textarea.value = defaultSpins.join(', ');
+      const spins = parseSpins();
+      const metrics = computeMetrics(spins);
+      renderMetrics(metrics);
+      renderChart(metrics);
+    }
+
+    document.getElementById('update-btn').addEventListener('click', () => {
+      const spins = parseSpins();
+      const metrics = computeMetrics(spins);
+      renderMetrics(metrics);
+      renderChart(metrics);
+    });
+
+    document.getElementById('explain-btn').addEventListener('click', () => callAI('explain'));
+    document.getElementById('anomaly-btn').addEventListener('click', () => callAI('anomaly'));
+
+    hydrate();
+  </script>
+</body>
+</html>
