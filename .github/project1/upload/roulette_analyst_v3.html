@@ -1,0 +1,2013 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roulette Analyst v3</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --red: #c0392b;
+    --red-light: #e74c3c;
+    --green: #1a6b3a;
+    --green-light: #27ae60;
+    --blue: #3a7bd5;
+    --text: #e8e0d0;
+    --text-dim: #888;
+    --first: #3a7bd5;
+    --second: #c0392b;
+    --third: #27ae60;
+    --d1: #3a7bd5;
+    --d2: #c0392b;
+    --d3: #27ae60;
+    --toast-bg: #1e1e1e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* Subtle radial glow in background */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 500px;
+    background: radial-gradient(ellipse, rgba(201,168,76,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    background: linear-gradient(180deg, #141414 0%, var(--bg) 100%);
+    position: relative;
+    z-index: 10;
+  }
+
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: -0.5px;
+  }
+
+  header .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-left: auto;
+  }
+
+  header span.tagline {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* Session pill */
+  .session-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+  }
+
+  .session-pill:hover { border-color: var(--gold); color: var(--gold); }
+  .session-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green-light);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+  /* ─── TOAST NOTIFICATION ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 10px 18px;
+    background: var(--toast-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--text);
+    z-index: 9999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    letter-spacing: 1px;
+  }
+
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* ─── TAB NAV ─── */
+  .tab-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 40px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .tab-btn {
+    padding: 12px 22px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: -1px;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  /* ─── TAB PANELS ─── */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ─── SHARED LAYOUT ─── */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    min-height: calc(100vh - 120px);
+    position: relative;
+    z-index: 1;
+  }
+
+  .main-panel {
+    padding: 28px 40px;
+    border-right: 1px solid var(--border);
+  }
+
+  .side-panel {
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ─── WHEEL ─── */
+  .wheel-section {
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    margin-bottom: 28px;
+  }
+
+  .wheel-container {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    flex-shrink: 0;
+  }
+
+  .wheel-svg {
+    width: 180px;
+    height: 180px;
+    animation: slowspin 40s linear infinite;
+    filter: drop-shadow(0 0 20px rgba(201,168,76,0.08));
+  }
+
+  @keyframes slowspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .wheel-spinning .wheel-svg { animation: fastspin 0.1s linear infinite; }
+  @keyframes fastspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .wheel-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    z-index: 10;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .wheel-center.pop { transform: translate(-50%, -50%) scale(1.25); }
+
+  .wheel-info h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+
+  .wheel-info p { font-size: 11px; color: var(--text-dim); line-height: 1.7; max-width: 280px; }
+
+  /* ─── QUICK ENTRY ─── */
+  .quick-entry {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    align-items: center;
+  }
+
+  .quick-entry input {
+    width: 72px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    border-radius: 4px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+
+  .quick-entry input:focus { outline: none; border-color: var(--gold); }
+  .quick-entry input::placeholder { color: var(--text-dim); }
+
+  .quick-entry .quick-hint {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  /* ─── NUMBER GRID ─── */
+  .input-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  .number-grid {
+    display: grid;
+    grid-template-columns: repeat(19, 1fr);
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .num-btn {
+    aspect-ratio: 1;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .num-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+
+  .num-btn:active::after { opacity: 0.15; }
+  .num-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.08); transform: translateY(-1px); }
+  .num-btn.red-num { border-color: rgba(192,57,43,0.4); color: #e07070; }
+  .num-btn.red-num:hover { border-color: var(--red-light); background: rgba(192,57,43,0.1); }
+  .num-btn.zero-num { border-color: rgba(39,174,96,0.4); color: #70c07a; }
+  .num-btn.zero-num:hover { border-color: var(--green-light); background: rgba(39,174,96,0.1); }
+
+  /* Flash animation when a number is added */
+  .num-btn.just-added {
+    animation: numflash 0.4s ease;
+  }
+
+  @keyframes numflash {
+    0% { transform: translateY(-1px) scale(1.15); border-color: var(--gold); background: rgba(201,168,76,0.2); }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  .controls-row { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+
+  .spin-btn {
+    flex: 1;
+    padding: 11px;
+    background: var(--gold);
+    color: #0a0a0a;
+    border: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .spin-btn:hover { background: var(--gold-light); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(201,168,76,0.2); }
+  .spin-btn:active { transform: translateY(0); }
+
+  .clear-btn {
+    padding: 11px 14px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .clear-btn:hover { border-color: var(--text-dim); color: var(--text); }
+
+  .export-btn {
+    padding: 11px 14px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .export-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* ─── HISTORY TAPE ─── */
+  .history-tape {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    min-height: 36px;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 24px;
+    scroll-behavior: smooth;
+  }
+
+  .history-tape::-webkit-scrollbar { width: 4px; }
+  .history-tape::-webkit-scrollbar-track { background: transparent; }
+  .history-tape::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .history-chip {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 500;
+    animation: chipin 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    cursor: default;
+    transition: transform 0.1s;
+  }
+
+  .history-chip:hover { transform: scale(1.2); z-index: 1; position: relative; }
+  .history-chip.latest { box-shadow: 0 0 0 2px var(--gold); }
+
+  @keyframes chipin { from { transform: scale(0) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(0deg); opacity: 1; } }
+
+  .chip-red   { background: rgba(192,57,43,0.3); border: 1px solid var(--red); color: #e07070; }
+  .chip-black { background: rgba(50,50,50,0.5);  border: 1px solid #444;       color: #aaa; }
+  .chip-zero  { background: rgba(39,174,96,0.2); border: 1px solid var(--green-light); color: #70c07a; }
+
+  /* ─── ANALYSIS CARDS ─── */
+  .analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .analysis-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 12px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .analysis-card.active { border-color: var(--gold); background: rgba(201,168,76,0.05); }
+
+  .card-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  .card-pct { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; margin-bottom: 2px; }
+  .card-range { font-size: 9px; color: var(--text-dim); }
+
+  .first-color  { color: var(--first); }
+  .second-color { color: var(--red-light); }
+  .third-color  { color: var(--green-light); }
+
+  /* ─── BARS ─── */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .bar-label { font-size: 10px; color: var(--text-dim); width: 56px; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+  .bar-pct { font-size: 10px; color: var(--text-dim); width: 34px; text-align: right; flex-shrink: 0; }
+
+  /* ─── SIDE CARDS ─── */
+  .prediction-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s;
+  }
+
+  .prediction-box.has-prediction { border-color: var(--gold); }
+
+  .prediction-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .prediction-box.has-prediction::before { opacity: 1; }
+
+  .pred-title { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+  .pred-main { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; color: var(--gold); margin-bottom: 4px; }
+  .pred-sub { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
+
+  .confidence-bar { height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+  .confidence-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-light)); border-radius: 2px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+  .confidence-label { font-size: 10px; color: var(--text-dim); }
+
+  .entropy-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+  }
+
+  .entropy-title { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+  .entropy-value { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; margin-bottom: 7px; }
+  .entropy-desc { font-size: 10px; color: var(--text-dim); line-height: 1.5; }
+
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-key { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+  .stat-val { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--text); }
+
+  .section-title { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+  .alert-box { padding: 10px 14px; border-radius: 4px; font-size: 11px; line-height: 1.5; }
+  .alert-warning { background: rgba(201,168,76,0.08); border: 1px solid rgba(201,168,76,0.3); color: var(--gold); }
+  .alert-info    { background: rgba(58,123,213,0.08);  border: 1px solid rgba(58,123,213,0.3);  color: #7ab3e8; }
+  .alert-active  { background: rgba(39,174,96,0.08);   border: 1px solid rgba(39,174,96,0.4);   color: var(--green-light); }
+
+  .parity-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .parity-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 9px 6px; text-align: center; }
+  .parity-val { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .parity-lbl { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+  .hot-numbers { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  /* ─── MODULE 1: DISTORTION PERSISTENCE ─── */
+  #tab-persistence .layout { grid-template-columns: 1fr 380px; }
+
+  .module-header { margin-bottom: 24px; }
+  .module-header h2 { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--gold); margin-bottom: 6px; }
+  .module-header p { font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+
+  .frame-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    border: 1px solid;
+  }
+
+  .frame-13 { border-color: rgba(58,123,213,0.5); color: var(--blue); background: rgba(58,123,213,0.06); }
+  .frame-12 { border-color: rgba(201,168,76,0.5); color: var(--gold); background: rgba(201,168,76,0.06); }
+
+  .frame-visual {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    align-items: flex-end;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    flex-wrap: wrap;
+  }
+
+  .frame-slot { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 28px; }
+
+  .frame-chip {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    transition: all 0.3s;
+  }
+
+  .frame-d1    { background: rgba(58,123,213,0.25);  border: 1px solid var(--d1); color: #7ab3e8; }
+  .frame-d2    { background: rgba(192,57,43,0.25);   border: 1px solid var(--d2); color: #e07070; }
+  .frame-d3    { background: rgba(39,174,96,0.25);   border: 1px solid var(--d3); color: #70c07a; }
+  .frame-z     { background: rgba(100,100,100,0.15); border: 1px solid #444;       color: #666; }
+  .frame-empty { background: var(--surface2); border: 1px dashed var(--border); color: #333; }
+
+  .frame-idx { font-size: 8px; color: var(--text-dim); }
+
+  /* Dozen count bars — big */
+  .dozen-count-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+
+  .dozen-count-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 12px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .dozen-count-card.dominant { border-width: 2px; }
+  .dozen-count-card.dominant-d1 { border-color: var(--d1); background: rgba(58,123,213,0.06); }
+  .dozen-count-card.dominant-d2 { border-color: var(--d2); background: rgba(192,57,43,0.06); }
+  .dozen-count-card.dominant-d3 { border-color: var(--d3); background: rgba(39,174,96,0.06); }
+
+  .dcc-dozen { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  .dcc-count { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; line-height: 1; margin-bottom: 6px; }
+  .dcc-range { font-size: 9px; color: var(--text-dim); }
+  .dcc-bar   { height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+  .dcc-fill  { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .fill-d1   { background: var(--d1); }
+  .fill-d2   { background: var(--d2); }
+  .fill-d3   { background: var(--d3); }
+
+  .signal-box { border-radius: 8px; padding: 16px 18px; margin-bottom: 20px; border: 1px solid; transition: all 0.4s; }
+  .signal-active   { border-color: rgba(39,174,96,0.5); background: rgba(39,174,96,0.06); }
+  .signal-inactive { border-color: var(--border); background: var(--surface); }
+
+  .signal-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  .signal-value { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .signal-frame { font-size: 11px; color: var(--text-dim); font-family: 'DM Mono', monospace; }
+
+  .persistence-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .control-group { display: flex; flex-direction: column; gap: 6px; }
+  .control-group label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); }
+  .control-group select {
+    padding: 8px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  .control-group select:hover, .control-group select:focus { outline: none; border-color: var(--gold); }
+
+  /* ─── READABLE RESULTS CARD ─── */
+  .results-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .results-card-header { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); padding: 12px 16px 8px; border-bottom: 1px solid var(--border); }
+  .results-card-body { padding: 10px 16px; }
+
+  .rc-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(42,42,42,0.5); }
+  .rc-row:last-child { border-bottom: none; }
+  .rc-key { font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; }
+  .rc-val { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text); text-align: right; }
+  .rc-val.dim { color: var(--text-dim); }
+
+  .status-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .pill-active   { background: rgba(39,174,96,0.15);  border: 1px solid rgba(39,174,96,0.5);  color: var(--green-light); }
+  .pill-inactive { background: rgba(100,100,100,0.1); border: 1px solid rgba(100,100,100,0.3); color: var(--text-dim); }
+
+  .strength-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+  .strength-none     { background: rgba(100,100,100,0.1); color: var(--text-dim); }
+  .strength-mild     { background: rgba(58,123,213,0.12); color: #7ab3e8; }
+  .strength-moderate { background: rgba(201,168,76,0.12); color: var(--gold); }
+  .strength-strong   { background: rgba(192,57,43,0.12);  color: #e0a070; }
+  .strength-extreme  { background: rgba(192,57,43,0.2);   color: var(--red-light); }
+
+  .signal-explanation { font-size: 10px; color: var(--text-dim); line-height: 1.5; padding: 6px 0 2px; font-style: italic; }
+  .rc-separator { height: 1px; background: var(--border); margin: 6px 0; }
+  .rc-subsection { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); opacity: 0.7; padding: 8px 0 4px; }
+
+  /* ─── MODULE 2: DISTORTION INDEX ─── */
+  .di-gauge-container { position: relative; width: 200px; height: 110px; margin: 0 auto 20px; }
+  .di-gauge-svg { width: 200px; height: 110px; }
+
+  .di-value-overlay { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; }
+  .di-value-num { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 900; line-height: 1; transition: color 0.4s; }
+  .di-value-label { font-size: 9px; color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; }
+
+  .deviation-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+
+  .dev-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 8px; text-align: center; transition: all 0.3s; }
+  .dev-card.dev-dominant { border-color: var(--gold); }
+  .dev-card.dev-weakest  { border-color: rgba(100,100,100,0.4); }
+
+  .dev-dozen { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  .dev-count { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; margin-bottom: 2px; }
+  .dev-diff  { font-size: 10px; }
+  .dev-diff.pos { color: var(--red-light); }
+  .dev-diff.neg { color: var(--blue); }
+  .dev-diff.neu { color: var(--text-dim); }
+  .dev-label { font-size: 8px; color: var(--text-dim); margin-top: 4px; letter-spacing: 1px; }
+
+  .di-level { padding: 8px 14px; border-radius: 6px; text-align: center; font-size: 11px; font-weight: 500; letter-spacing: 1px; margin-bottom: 16px; border: 1px solid; }
+  .di-level-low  { background: rgba(39,174,96,0.08);  border-color: rgba(39,174,96,0.3);  color: var(--green-light); }
+  .di-level-mid  { background: rgba(201,168,76,0.08); border-color: rgba(201,168,76,0.3); color: var(--gold); }
+  .di-level-high { background: rgba(192,57,43,0.08);  border-color: rgba(192,57,43,0.3);  color: var(--red-light); }
+  .di-level-null { background: var(--surface); border-color: var(--border); color: var(--text-dim); }
+
+  .frame12-visual { display: flex; gap: 3px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+
+  .output-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 14px; font-size: 10px; color: var(--text-dim); line-height: 1.8; font-family: 'DM Mono', monospace; }
+  .output-box .key { color: var(--gold); }
+  .output-box .val-d1 { color: #7ab3e8; }
+  .output-box .val-d2 { color: #e07070; }
+  .output-box .val-d3 { color: #70c07a; }
+  .val-d1 { color: #7ab3e8; }
+  .val-d2 { color: #e07070; }
+  .val-d3 { color: #70c07a; }
+  .output-box .val-n { color: var(--text); }
+
+  /* Progress indicator for data needed */
+  .needs-data {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .needs-data-circle {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .needs-data span { font-size: 11px; color: var(--text-dim); }
+  .needs-data small { font-size: 9px; color: var(--border); letter-spacing: 2px; text-transform: uppercase; }
+
+  /* ─── KEYBOARD SHORTCUT HINT ─── */
+  .kbd-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    min-width: 18px;
+  }
+
+  @media (max-width: 960px) {
+    .layout, #tab-persistence .layout { grid-template-columns: 1fr; }
+    .number-grid { grid-template-columns: repeat(13, 1fr); }
+    .wheel-section { flex-direction: column; }
+    .side-panel { border-top: 1px solid var(--border); }
+    header { padding: 16px 20px; flex-wrap: wrap; }
+    .main-panel { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Toast container -->
+<div class="toast" id="toast"></div>
+
+<header>
+  <h1>Roulette Analyst</h1>
+  <div class="header-meta">
+    <span class="tagline">Statistical Analysis Suite · v3</span>
+    <div class="session-pill" onclick="exportHistory()" title="Export spin history">
+      <div class="dot"></div>
+      <span id="headerSpinCount">0 spins</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active"  onclick="switchTab('pattern', this)">Pattern Analysis</button>
+  <button class="tab-btn"         onclick="switchTab('persistence', this)">Distortion Persistence</button>
+  <button class="tab-btn"         onclick="switchTab('distortion', this)">Distortion Index</button>
+</nav>
+
+<!-- ════════════════════════════════════════════════
+     TAB 1 — PATTERN ANALYSIS
+════════════════════════════════════════════════ -->
+<div id="tab-pattern" class="tab-panel active">
+  <div class="layout">
+    <div class="main-panel">
+
+      <div class="wheel-section">
+        <div class="wheel-container" id="wheelContainer">
+          <svg class="wheel-svg" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="98" fill="#111" stroke="#2a2a2a" stroke-width="1"/>
+            <g id="wheelSegments"></g>
+            <circle cx="100" cy="100" r="20" fill="#0a0a0a" stroke="#c9a84c" stroke-width="1.5"/>
+          </svg>
+          <div class="wheel-center" id="wheelCenter">?</div>
+        </div>
+        <div class="wheel-info">
+          <h2>Pattern Advisor</h2>
+          <p>Enter past spin results by clicking numbers below, typing in the quick-entry field, or simulating random spins. Entropy analysis reveals which dozen shows the strongest statistical trend.</p>
+          <br>
+          <p style="color: var(--gold); font-size: 10px;">⚠ Statistical observation only. Past results do not predict future outcomes.</p>
+        </div>
+      </div>
+
+      <div class="input-label">Quick Entry</div>
+      <div class="quick-entry">
+        <input type="number" id="quickInput" min="0" max="36" placeholder="0–36"
+          onkeydown="handleQuickInput(event)" autocomplete="off" />
+        <span class="kbd-hint"><kbd>Enter</kbd> to add · <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo</span>
+      </div>
+
+      <div class="input-label">Click to Add Spin Result</div>
+      <div class="number-grid" id="numberGrid"></div>
+      <div class="controls-row">
+        <button class="spin-btn" onclick="addRandom()">▶ Simulate Random Spin</button>
+        <button class="clear-btn" onclick="undoLast()">Undo</button>
+        <button class="clear-btn" onclick="clearHistory()">Clear All</button>
+        <button class="export-btn" onclick="exportHistory()" title="Export history as text">Export</button>
+      </div>
+
+      <div class="input-label">Spin History (<span id="histCount">0</span> spins)</div>
+      <div class="history-tape" id="historyTape">
+        <span style="font-size:11px;color:var(--text-dim);align-self:center;">No spins recorded yet…</span>
+      </div>
+
+      <div class="input-label" style="margin-bottom:12px;">Dozen Distribution (last 36)</div>
+      <div class="analysis-grid">
+        <div class="analysis-card" id="card-first">
+          <div class="card-label">First Dozen</div>
+          <div class="card-pct first-color" id="pct-first">—</div>
+          <div class="card-range">1 — 12</div>
+        </div>
+        <div class="analysis-card" id="card-second">
+          <div class="card-label">Second Dozen</div>
+          <div class="card-pct second-color" id="pct-second">—</div>
+          <div class="card-range">13 — 24</div>
+        </div>
+        <div class="analysis-card" id="card-third">
+          <div class="card-label">Third Dozen</div>
+          <div class="card-pct third-color" id="pct-third">—</div>
+          <div class="card-range">25 — 36</div>
+        </div>
+      </div>
+
+      <div style="padding:0 2px">
+        <div class="bar-row"><div class="bar-label">1–12</div><div class="bar-track"><div class="bar-fill" id="bar-first" style="width:0%;background:#3a7bd5"></div></div><div class="bar-pct" id="barpct-first">0%</div></div>
+        <div class="bar-row"><div class="bar-label">13–24</div><div class="bar-track"><div class="bar-fill" id="bar-second" style="width:0%;background:#c0392b"></div></div><div class="bar-pct" id="barpct-second">0%</div></div>
+        <div class="bar-row"><div class="bar-label">25–36</div><div class="bar-track"><div class="bar-fill" id="bar-third" style="width:0%;background:#27ae60"></div></div><div class="bar-pct" id="barpct-third">0%</div></div>
+        <div class="bar-row"><div class="bar-label">Zero</div><div class="bar-track"><div class="bar-fill" id="bar-zero" style="width:0%;background:#c9a84c"></div></div><div class="bar-pct" id="barpct-zero">0%</div></div>
+      </div>
+
+    </div>
+
+    <div class="side-panel">
+      <div class="prediction-box" id="predictionBox">
+        <div class="pred-title">Entropy Prediction</div>
+        <div class="pred-main" id="predMain">—</div>
+        <div class="pred-sub" id="predSub">Add at least 12 spins</div>
+        <div class="confidence-bar"><div class="confidence-fill" id="confFill" style="width:0%"></div></div>
+        <div class="confidence-label" id="confLabel">Confidence: —</div>
+      </div>
+
+      <div class="entropy-section">
+        <div class="entropy-title">Entropy Index</div>
+        <div class="entropy-value" id="entropyVal" style="color:var(--text-dim)">—</div>
+        <div class="bar-track" style="margin-bottom:8px"><div class="bar-fill" id="entropyBar" style="width:0%;background:linear-gradient(90deg,#27ae60,#c9a84c,#c0392b)"></div></div>
+        <div class="entropy-desc" id="entropyDesc">Measures randomness. Lower = stronger pattern.</div>
+      </div>
+
+      <div>
+        <div class="section-title">Even / Odd / Zero</div>
+        <div class="parity-grid">
+          <div class="parity-card"><div class="parity-val" style="color:#aaa" id="par-even">—</div><div class="parity-lbl">EVEN</div></div>
+          <div class="parity-card"><div class="parity-val" style="color:#888" id="par-odd">—</div><div class="parity-lbl">ODD</div></div>
+          <div class="parity-card"><div class="parity-val" style="color:var(--green-light)" id="par-zero">—</div><div class="parity-lbl">ZERO</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">High / Low Split</div>
+        <div class="parity-grid">
+          <div class="parity-card"><div class="parity-val" style="color:var(--first)" id="range-low">—</div><div class="parity-lbl">1–18</div></div>
+          <div class="parity-card"><div class="parity-val" style="color:var(--red-light)" id="range-high">—</div><div class="parity-lbl">19–36</div></div>
+          <div class="parity-card"><div class="parity-val" id="range-winner" style="color:var(--gold);font-size:12px">—</div><div class="parity-lbl">TREND</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Hot Numbers (last 36)</div>
+        <div class="hot-numbers" id="hotNumbers"><span style="font-size:10px;color:var(--text-dim)">No data</span></div>
+      </div>
+
+      <div>
+        <div class="section-title">Quick Stats</div>
+        <div class="stat-row"><div class="stat-key">Total Spins</div><div class="stat-val" id="stat-total">0</div></div>
+        <div class="stat-row"><div class="stat-key">Last Result</div><div class="stat-val" id="stat-last">—</div></div>
+        <div class="stat-row"><div class="stat-key">Streak</div><div class="stat-val" id="stat-streak">—</div></div>
+        <div class="stat-row"><div class="stat-key">Zeros Hit</div><div class="stat-val" id="stat-zeros">0</div></div>
+        <div class="stat-row" style="border:none"><div class="stat-key">Most Frequent</div><div class="stat-val" id="stat-freq">—</div></div>
+      </div>
+
+      <div class="alert-info" id="infoBox">Add spins to begin analysis. Needs at least 12 results to compute entropy.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB 2 — DISTORTION PERSISTENCE
+════════════════════════════════════════════════ -->
+<div id="tab-persistence" class="tab-panel">
+  <div class="layout">
+    <div class="main-panel">
+
+      <div class="module-header">
+        <h2>Distortion Persistence</h2>
+        <p>Analyzes the last <strong style="color:var(--text)">N non-zero spins</strong> (filtered, excluding zero). Supports multiple analysis modes including two-window confirmation, gap-based analysis, and regime shift detection.</p>
+      </div>
+
+      <div class="frame-badge frame-13">Non-Zero Frame Analysis</div>
+
+      <div class="persistence-controls">
+        <div class="control-group">
+          <label for="sensitivity">Sensitivity</label>
+          <select id="sensitivity" onchange="analyzePersistence()">
+            <option value="early">Early</option>
+            <option value="reliable" selected>Reliable</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="signalMode">Signal Mode</label>
+          <select id="signalMode" onchange="analyzePersistence()">
+            <option value="twowindow" selected>Two-window (13+26)</option>
+            <option value="gap">Gap (13)</option>
+            <option value="regime">Regime Shift (prev13 vs curr13)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="input-label">Last 13 Non-Zero Spins (oldest → newest)</div>
+      <div class="frame-visual" id="frame13Visual">
+        <span style="font-size:10px;color:var(--text-dim)">Add spins on the Pattern tab first…</span>
+      </div>
+
+      <div class="input-label" style="margin-bottom:12px;">Dozen Counts in Frame</div>
+      <div class="dozen-count-grid">
+        <div class="dozen-count-card" id="dcc1">
+          <div class="dcc-dozen">D1</div>
+          <div class="dcc-count first-color" id="dcc1-count">—</div>
+          <div class="dcc-range">1 – 12</div>
+          <div class="dcc-bar"><div class="dcc-fill fill-d1" id="dcc1-bar" style="width:0%"></div></div>
+        </div>
+        <div class="dozen-count-card" id="dcc2">
+          <div class="dcc-dozen">D2</div>
+          <div class="dcc-count second-color" id="dcc2-count">—</div>
+          <div class="dcc-range">13 – 24</div>
+          <div class="dcc-bar"><div class="dcc-fill fill-d2" id="dcc2-bar" style="width:0%"></div></div>
+        </div>
+        <div class="dozen-count-card" id="dcc3">
+          <div class="dcc-dozen">D3</div>
+          <div class="dcc-count third-color" id="dcc3-count">—</div>
+          <div class="dcc-range">25 – 36</div>
+          <div class="dcc-bar"><div class="dcc-fill fill-d3" id="dcc3-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="signal-box signal-inactive" id="signalBox">
+        <div class="signal-label">Distortion Signal</div>
+        <div class="signal-value" id="signalValue">—</div>
+        <div class="signal-frame" id="signalFrame">Awaiting data…</div>
+      </div>
+
+      <div class="input-label" style="margin-bottom:10px;">Frame Breakdown</div>
+      <div style="padding:0 2px">
+        <div class="bar-row"><div class="bar-label">D1 (1–12)</div><div class="bar-track"><div class="bar-fill" id="pb1" style="width:0%;background:#3a7bd5"></div></div><div class="bar-pct" id="pbp1">—</div></div>
+        <div class="bar-row"><div class="bar-label">D2 (13–24)</div><div class="bar-track"><div class="bar-fill" id="pb2" style="width:0%;background:#c0392b"></div></div><div class="bar-pct" id="pbp2">—</div></div>
+        <div class="bar-row"><div class="bar-label">D3 (25–36)</div><div class="bar-track"><div class="bar-fill" id="pb3" style="width:0%;background:#27ae60"></div></div><div class="bar-pct" id="pbp3">—</div></div>
+      </div>
+
+    </div>
+
+    <div class="side-panel">
+
+      <div class="alert-box alert-warning" id="heuristicBox" style="display:none">
+        <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;opacity:0.9;margin-bottom:6px;">
+          Heuristic (Not a Prediction)
+        </div>
+        <div style="font-size:11px;line-height:1.6;">
+          <div><strong>Momentum:</strong> Current dominant is <span id="heur-momentum"></span>.</div>
+          <div><strong>Reversion:</strong> Current weakest is <span id="heur-reversion"></span>.</div>
+          <div style="margin-top:8px;color:var(--text-dim);font-size:10px;">
+            Roulette spins are independent; this is descriptive, not forecasting.
+          </div>
+        </div>
+      </div>
+
+      <div class="results-card" id="rcFrame">
+        <div class="results-card-header">Current Frame (13 Non-Zero)</div>
+        <div class="results-card-body">
+          <div class="rc-row"><span class="rc-key">D1 count</span><span class="rc-val dim" id="rc-d1">—</span></div>
+          <div class="rc-row"><span class="rc-key">D2 count</span><span class="rc-val dim" id="rc-d2">—</span></div>
+          <div class="rc-row"><span class="rc-key">D3 count</span><span class="rc-val dim" id="rc-d3">—</span></div>
+          <div class="rc-separator"></div>
+          <div class="rc-row"><span class="rc-key">Sorted (a ≥ b ≥ c)</span><span class="rc-val" id="rc-sorted">—</span></div>
+          <div class="rc-row"><span class="rc-key">Gap (a − c)</span><span class="rc-val" id="rc-gap">—</span></div>
+          <div class="rc-row"><span class="rc-key">Dominant share pMax</span><span class="rc-val" id="rc-pmax">—</span></div>
+          <div class="rc-row"><span class="rc-key">Norm. entropy Hnorm</span><span class="rc-val" id="rc-hnorm">—</span></div>
+        </div>
+      </div>
+
+      <div class="results-card" id="rcSignal">
+        <div class="results-card-header">Signal</div>
+        <div class="results-card-body">
+          <div class="rc-row">
+            <span class="rc-key">Status</span>
+            <span class="status-pill pill-inactive" id="rc-status-pill">Inactive</span>
+          </div>
+          <div class="rc-row">
+            <span class="rc-key">Strength</span>
+            <span class="strength-badge strength-none" id="rc-strength">—</span>
+          </div>
+          <div class="signal-explanation" id="rc-explanation">Awaiting data…</div>
+        </div>
+      </div>
+
+      <div class="results-card" id="rcModeCard" style="display:none">
+        <div class="results-card-header" id="rcModeHeader">—</div>
+        <div class="results-card-body" id="rcModeBody"></div>
+      </div>
+
+      <div style="padding:4px 0">
+        <div class="section-title">Gap Severity (N=13)</div>
+        <div style="font-size:10px;color:var(--text-dim);line-height:1.6;padding:0 4px">
+          <div style="display:flex;justify-content:space-between"><span>No distortion</span><span>gap 0–2</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Mild</span><span>gap = 3</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Moderate</span><span>gap = 4</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Strong</span><span>gap = 5</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Extreme</span><span>gap ≥ 6</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB 3 — DISTORTION INDEX
+════════════════════════════════════════════════ -->
+<div id="tab-distortion" class="tab-panel">
+  <div class="layout">
+    <div class="main-panel">
+
+      <div class="module-header">
+        <h2>Distortion Index</h2>
+        <p>Analyzes the last <strong style="color:var(--text)">12 non-zero spins</strong> (filtered, excluding zero). Expected count per dozen = 4. Measures total deviation from expected distribution on a <strong style="color:var(--text)">0–10 scale</strong>.</p>
+      </div>
+
+      <div class="frame-badge frame-12">12-Spin Frame · Scale 0–10</div>
+
+      <div class="input-label">Last 12 Non-Zero Spins (oldest → newest)</div>
+      <div class="frame12-visual" id="frame12Visual">
+        <span style="font-size:10px;color:var(--text-dim)">Add spins on the Pattern tab first…</span>
+      </div>
+
+      <div class="input-label" style="margin-bottom:12px;">Deviation from Expected (4 per dozen)</div>
+      <div class="deviation-grid">
+        <div class="dev-card" id="devc1">
+          <div class="dev-dozen" style="color:var(--d1)">D1 · 1–12</div>
+          <div class="dev-count first-color" id="dev1-count">—</div>
+          <div class="dev-diff" id="dev1-diff">—</div>
+          <div class="dev-label" id="dev1-label"></div>
+        </div>
+        <div class="dev-card" id="devc2">
+          <div class="dev-dozen" style="color:var(--d2)">D2 · 13–24</div>
+          <div class="dev-count second-color" id="dev2-count">—</div>
+          <div class="dev-diff" id="dev2-diff">—</div>
+          <div class="dev-label" id="dev2-label"></div>
+        </div>
+        <div class="dev-card" id="devc3">
+          <div class="dev-dozen" style="color:var(--d3)">D3 · 25–36</div>
+          <div class="dev-count third-color" id="dev3-count">—</div>
+          <div class="dev-diff" id="dev3-diff">—</div>
+          <div class="dev-label" id="dev3-label"></div>
+        </div>
+      </div>
+
+      <div class="input-label" style="margin-bottom:10px;">Per-Dozen Share of Frame</div>
+      <div style="padding:0 2px;margin-bottom:20px">
+        <div class="bar-row"><div class="bar-label">D1 (1–12)</div><div class="bar-track"><div class="bar-fill" id="db1" style="width:0%;background:#3a7bd5"></div></div><div class="bar-pct" id="dbp1">—</div></div>
+        <div class="bar-row"><div class="bar-label">D2 (13–24)</div><div class="bar-track"><div class="bar-fill" id="db2" style="width:0%;background:#c0392b"></div></div><div class="bar-pct" id="dbp2">—</div></div>
+        <div class="bar-row"><div class="bar-label">D3 (25–36)</div><div class="bar-track"><div class="bar-fill" id="db3" style="width:0%;background:#27ae60"></div></div><div class="bar-pct" id="dbp3">—</div></div>
+      </div>
+
+      <div class="input-label" style="margin-bottom:10px;">Deviation Breakdown</div>
+      <div style="padding:0 2px">
+        <div class="bar-row"><div class="bar-label">|D1 − 4|</div><div class="bar-track"><div class="bar-fill" id="devbar1" style="width:0%;background:#3a7bd5"></div></div><div class="bar-pct" id="devbarp1">—</div></div>
+        <div class="bar-row"><div class="bar-label">|D2 − 4|</div><div class="bar-track"><div class="bar-fill" id="devbar2" style="width:0%;background:#c0392b"></div></div><div class="bar-pct" id="devbarp2">—</div></div>
+        <div class="bar-row"><div class="bar-label">|D3 − 4|</div><div class="bar-track"><div class="bar-fill" id="devbar3" style="width:0%;background:#27ae60"></div></div><div class="bar-pct" id="devbarp3">—</div></div>
+      </div>
+
+    </div>
+
+    <div class="side-panel">
+
+      <div>
+        <div class="section-title">Distortion Index (0–10)</div>
+        <div class="di-gauge-container">
+          <svg class="di-gauge-svg" viewBox="0 0 200 110">
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2a2a2a" stroke-width="14" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   stop-color="#27ae60"/>
+                <stop offset="50%"  stop-color="#c9a84c"/>
+                <stop offset="100%" stop-color="#c0392b"/>
+              </linearGradient>
+            </defs>
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" opacity="0.25"/>
+            <path id="gaugeNeedle" d="M 20 100 A 80 80 0 0 1 20 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round"/>
+            <text x="14"  y="108" fill="#555" font-size="9" font-family="DM Mono">0</text>
+            <text x="92"  y="22"  fill="#555" font-size="9" font-family="DM Mono" text-anchor="middle">5</text>
+            <text x="182" y="108" fill="#555" font-size="9" font-family="DM Mono">10</text>
+          </svg>
+          <div class="di-value-overlay">
+            <div class="di-value-num" id="diValueNum" style="color:var(--text-dim)">—</div>
+            <div class="di-value-label">Distortion Index</div>
+          </div>
+        </div>
+        <div class="di-level di-level-null" id="diLevel">Awaiting data</div>
+      </div>
+
+      <div>
+        <div class="section-title">Index Breakdown</div>
+        <div class="stat-row"><div class="stat-key">Frame (D1, D2, D3)</div><div class="stat-val" id="di-frame">—</div></div>
+        <div class="stat-row"><div class="stat-key">Total Deviation</div><div class="stat-val" id="di-deviation">—</div></div>
+        <div class="stat-row"><div class="stat-key">Formula</div><div class="stat-val" style="font-size:11px;color:var(--text-dim)">dev / 12 × 10</div></div>
+        <div class="stat-row"><div class="stat-key">Dominant Dozen</div><div class="stat-val" id="di-dominant">—</div></div>
+        <div class="stat-row" style="border:none"><div class="stat-key">Weakest Dozen</div><div class="stat-val" id="di-weakest">—</div></div>
+      </div>
+
+      <div class="output-box" id="distortionJSON">
+        <span style="color:var(--border)">// Awaiting 12+ non-zero spins…</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════ -->
+<script>
+
+// ─── CONSTANTS ───────────────────────────────────────────────
+const RED_NUMS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const STORAGE_KEY = 'roulette-analyst-history';
+
+// ─── STATE ──────────────────────────────────────────────────
+let history = loadHistory();
+
+// ─── PERSISTENCE ────────────────────────────────────────────
+function loadHistory() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch { return []; }
+}
+
+function saveHistory() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch {}
+}
+
+// ─── TOAST ──────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ─── TAB SWITCHING ──────────────────────────────────────────
+/**
+ * @param {string} name - Tab name
+ * @param {HTMLElement} btn - The clicked button element
+ */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── BUILD NUMBER GRID ──────────────────────────────────────
+const grid = document.getElementById('numberGrid');
+for (let i = 0; i <= 36; i++) {
+  const btn = document.createElement('button');
+  btn.className = 'num-btn' + (i === 0 ? ' zero-num' : RED_NUMS.has(i) ? ' red-num' : '');
+  btn.textContent = i;
+  btn.id = `numBtn${i}`;
+  btn.onclick = () => addNumber(i);
+  grid.appendChild(btn);
+}
+
+// ─── BUILD WHEEL SVG ────────────────────────────────────────
+(function buildWheel() {
+  const g = document.getElementById('wheelSegments');
+  const nums = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+  nums.forEach((num, i) => {
+    const a1 = (360 / nums.length * i - 90) * Math.PI / 180;
+    const a2 = (360 / nums.length * (i + 1) - 90) * Math.PI / 180;
+    const r = 98, ri = 25;
+    const d = `M ${100+ri*Math.cos(a1)} ${100+ri*Math.sin(a1)} L ${100+r*Math.cos(a1)} ${100+r*Math.sin(a1)} A ${r} ${r} 0 0 1 ${100+r*Math.cos(a2)} ${100+r*Math.sin(a2)} L ${100+ri*Math.cos(a2)} ${100+ri*Math.sin(a2)} A ${ri} ${ri} 0 0 0 ${100+ri*Math.cos(a1)} ${100+ri*Math.sin(a1)}`;
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('fill', num === 0 ? '#1a5c2e' : RED_NUMS.has(num) ? '#7a1a1a' : '#1a1a1a');
+    p.setAttribute('stroke', '#0a0a0a');
+    p.setAttribute('stroke-width', '0.5');
+    g.appendChild(p);
+  });
+})();
+
+// ─── QUICK ENTRY KEYBOARD HANDLER ──────────────────────────
+function handleQuickInput(e) {
+  if (e.key === 'Enter') {
+    const val = parseInt(e.target.value, 10);
+    if (!isNaN(val) && val >= 0 && val <= 36) {
+      addNumber(val);
+      e.target.value = '';
+      e.target.select();
+    } else {
+      e.target.style.borderColor = 'var(--red-light)';
+      setTimeout(() => e.target.style.borderColor = '', 600);
+    }
+  }
+}
+
+// Global keyboard shortcut: Ctrl+Z = undo
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'z' && document.activeElement.id !== 'quickInput') {
+    e.preventDefault();
+    undoLast();
+  }
+});
+
+// ─── EXPORT HISTORY ──────────────────────────────────────────
+function exportHistory() {
+  if (!history.length) { showToast('No spins to export'); return; }
+  const text = `Roulette Analyst Export — ${new Date().toLocaleString()}\n` +
+    `Total spins: ${history.length}\n\n` +
+    `History: ${history.join(', ')}\n`;
+  navigator.clipboard.writeText(text)
+    .then(() => showToast(`Copied ${history.length} spins to clipboard`))
+    .catch(() => showToast('Copy failed — try a different browser'));
+}
+
+// ─── HISTORY ACTIONS ─────────────────────────────────────────
+function addNumber(n) {
+  history.push(n);
+  saveHistory();
+  renderAll();
+  flashWheel(n);
+  flashBtn(n);
+}
+
+function addRandom() { addNumber(Math.floor(Math.random() * 37)); }
+
+function undoLast() {
+  if (!history.length) return;
+  const removed = history.pop();
+  saveHistory();
+  renderAll();
+  showToast(`Removed ${removed}`);
+}
+
+function clearHistory() {
+  if (!history.length) return;
+  if (confirm(`Clear all ${history.length} spins?`)) {
+    history = [];
+    saveHistory();
+    renderAll();
+    showToast('History cleared');
+  }
+}
+
+function flashBtn(n) {
+  const btn = document.getElementById(`numBtn${n}`);
+  if (!btn) return;
+  btn.classList.remove('just-added');
+  void btn.offsetWidth; // force reflow to restart animation
+  btn.classList.add('just-added');
+  setTimeout(() => btn.classList.remove('just-added'), 500);
+}
+
+function flashWheel(n) {
+  const wc = document.getElementById('wheelContainer');
+  const center = document.getElementById('wheelCenter');
+  wc.classList.add('wheel-spinning');
+  center.textContent = '…';
+  center.style.color = 'var(--gold)';
+  setTimeout(() => {
+    wc.classList.remove('wheel-spinning');
+    center.textContent = n;
+    center.style.color = n === 0 ? 'var(--green-light)' : RED_NUMS.has(n) ? 'var(--red-light)' : 'var(--text)';
+    center.classList.add('pop');
+    setTimeout(() => {
+      center.classList.remove('pop');
+      center.style.color = 'var(--gold)';
+    }, 600);
+  }, 450);
+}
+
+// ─── RENDER ALL ──────────────────────────────────────────────
+function renderAll() {
+  document.getElementById('headerSpinCount').textContent =
+    history.length === 1 ? '1 spin' : `${history.length} spins`;
+  renderHistory();
+  analyzePattern();
+  analyzePersistence();
+  analyzeDistortionIndex();
+}
+
+// ─── RENDER HISTORY TAPE ─────────────────────────────────────
+function renderHistory() {
+  const tape = document.getElementById('historyTape');
+  document.getElementById('histCount').textContent = history.length;
+  if (!history.length) {
+    tape.innerHTML = '<span style="font-size:11px;color:var(--text-dim);align-self:center;">No spins recorded yet…</span>';
+    return;
+  }
+  tape.innerHTML = history.map((n, i) => {
+    const cls = n === 0 ? 'chip-zero' : RED_NUMS.has(n) ? 'chip-red' : 'chip-black';
+    const latest = i === history.length - 1 ? ' latest' : '';
+    return `<div class="history-chip${cls ? ' ' + cls : ''}${latest}" title="Spin #${i+1}: ${n}">${n}</div>`;
+  }).join('');
+  // Scroll to end
+  tape.scrollTop = tape.scrollHeight;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SHARED HELPERS
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Returns the dozen (1–3) for a spin result, or null for zero.
+ */
+function getDozen(number) {
+  if (number <= 0)  return null;
+  if (number <= 12) return 1;
+  if (number <= 24) return 2;
+  if (number <= 36) return 3;
+  return null;
+}
+
+/** Filters to non-zero spins only. */
+const getNonZeroSpins = (spins) => spins.filter(s => s !== 0);
+
+/** Returns display label for a dozen. */
+const dozenLabel = (d) => `D${d}`;
+
+/**
+ * Counts D1/D2/D3 occurrences in a spin array.
+ */
+function countDozens(spins) {
+  const counts = { d1: 0, d2: 0, d3: 0 };
+  for (const s of spins) {
+    const d = getDozen(s);
+    if (d === 1) counts.d1++;
+    else if (d === 2) counts.d2++;
+    else if (d === 3) counts.d3++;
+  }
+  return counts;
+}
+
+/**
+ * Computes metrics for a window of non-zero spins.
+ */
+function computeWindowMetrics(window) {
+  const { d1, d2, d3 } = countDozens(window);
+  const counts = [d1, d2, d3];
+  const N = window.length;
+  const sorted = [...counts].sort((a, b) => b - a);
+  const gap = sorted[0] - sorted[2];
+  const pmax = N > 0 ? sorted[0] / N : 0;
+  const probs = counts.map(c => N > 0 ? c / N : 0);
+  const H = -probs.reduce((sum, p) => sum + (p > 0 ? p * Math.log(p) : 0), 0);
+  const Hnorm = Math.log(3) > 0 ? H / Math.log(3) : 0;
+  return { counts, sorted, gap, pmax, Hnorm };
+}
+
+/** Renders heuristics box. */
+function renderHeuristics(stats) {
+  const box = document.getElementById('heuristicBox');
+  if (!stats) { box.style.display = 'none'; return; }
+  document.getElementById('heur-momentum').textContent  = dozenLabel(stats.dominantDozen);
+  document.getElementById('heur-reversion').textContent = dozenLabel(stats.weakestDozen);
+  box.style.display = 'block';
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODULE 1 — Distortion Persistence
+// ══════════════════════════════════════════════════════════════
+
+function gapGrade(gap) {
+  if (gap <= 2)  return 'No distortion';
+  if (gap === 3) return 'Mild';
+  if (gap === 4) return 'Moderate';
+  if (gap === 5) return 'Strong';
+  return 'Extreme';
+}
+
+function gradeClass(grade) {
+  return { 'No distortion':'none', 'Mild':'mild', 'Moderate':'moderate', 'Strong':'strong', 'Extreme':'extreme' }[grade] || 'none';
+}
+
+function distortionPersistence(hist, sensitivity, signalMode) {
+  const nz = getNonZeroSpins(hist);
+  if (signalMode === 'twowindow') {
+    if (nz.length < 26) return null;
+    return twoWindowConfirmation(nz, sensitivity);
+  }
+  if (signalMode === 'gap') {
+    if (nz.length < 13) return null;
+    return gapAnalysis(nz, sensitivity);
+  }
+  if (signalMode === 'regime') {
+    if (nz.length < 26) return null;
+    return regimeShiftAnalysis(nz, sensitivity);
+  }
+  return null;
+}
+
+function twoWindowConfirmation(nz, sensitivity) {
+  const win13 = nz.slice(-13);
+  const win26 = nz.slice(-26);
+  const m13 = computeWindowMetrics(win13);
+  const m26 = computeWindowMetrics(win26);
+  const grade13 = gapGrade(m13.gap);
+  const grade26 = gapGrade(m26.gap);
+  const trigger13_gap  = m13.gap >= 4;
+  const trigger13_conc = m13.pmax >= 0.46 && m13.Hnorm <= 0.90;
+  const trigger13 = trigger13_gap || trigger13_conc;
+  const trigger26 = m26.gap >= 3;
+  let active, explanation;
+  if (sensitivity === 'early') {
+    active = trigger13;
+    if (active) {
+      const reasons = [];
+      if (trigger13_gap)  reasons.push(`gap(13)=${m13.gap} ≥ 4`);
+      if (trigger13_conc) reasons.push(`pMax=${m13.pmax.toFixed(2)} & Hnorm=${m13.Hnorm.toFixed(3)} ≤ 0.90`);
+      explanation = `Early: 13-window ${grade13}. ${reasons.join('; ')}`;
+    } else {
+      explanation = `13-window gap=${m13.gap} (${grade13}), below Moderate threshold.`;
+    }
+  } else {
+    active = trigger13 && trigger26;
+    explanation = active
+      ? `Confirmed: 13-win ${grade13} (gap=${m13.gap}) + 26-win ${grade26} (gap=${m26.gap}).`
+      : trigger13
+        ? `13-window triggers (${grade13}), but 26-window too weak (${grade26}).`
+        : `13-window gap=${m13.gap} (${grade13}), not enough for Reliable.`;
+  }
+  return {
+    mode: 'twowindow', sensitivity, active,
+    grade: grade13, explanation,
+    frame13: win13, frame26: win26,
+    metrics13: m13, metrics26: m26,
+    grade13, grade26,
+    confirmed: trigger13 && trigger26,
+  };
+}
+
+function gapAnalysis(nz, sensitivity) {
+  const win13 = nz.slice(-13);
+  const m = computeWindowMetrics(win13);
+  const grade = gapGrade(m.gap);
+  const thresh = sensitivity === 'early' ? 4 : 5;
+  const active = m.gap >= thresh;
+  const explanation = active
+    ? `Gap=${m.gap} ≥ ${thresh} → ${grade}. Hnorm=${m.Hnorm.toFixed(3)}, pMax=${m.pmax.toFixed(2)}.`
+    : `Gap=${m.gap} < ${thresh} (${grade}). No trigger at ${sensitivity} sensitivity.`;
+  return { mode: 'gap', sensitivity, active, grade, explanation, frame13: win13, metrics13: m };
+}
+
+function regimeShiftAnalysis(nz, sensitivity) {
+  const curr13 = nz.slice(-13);
+  const prev13 = nz.slice(-26, -13);
+  const mCurr = computeWindowMetrics(curr13);
+  const mPrev = computeWindowMetrics(prev13);
+  const currDist = mCurr.counts.map(c => c / 13);
+  const prevDist = mPrev.counts.map(c => c / 13);
+  const shift = currDist.reduce((s, p, i) => s + Math.abs(p - prevDist[i]), 0);
+  const shiftLabel = shift < 0.30 ? 'Small' : shift <= 0.60 ? 'Medium' : 'Large';
+  const currGrade = gapGrade(mCurr.gap);
+  const currDistorted = mCurr.gap >= 3 || mCurr.Hnorm <= 0.90;
+  let active, explanation;
+  if (sensitivity === 'early') {
+    active = shift >= 0.30;
+    explanation = active
+      ? `Shift=${shift.toFixed(2)} (${shiftLabel}) ≥ 0.30. Current: ${currGrade}.`
+      : `Shift=${shift.toFixed(2)} (${shiftLabel}) < 0.30. No regime change detected.`;
+  } else {
+    active = shift > 0.60 && currDistorted;
+    explanation = active
+      ? `Shift=${shift.toFixed(2)} (${shiftLabel}) + current frame distorted (${currGrade}).`
+      : shift > 0.60
+        ? `Shift=${shift.toFixed(2)} (${shiftLabel}), but current frame balanced (${currGrade}).`
+        : `Shift=${shift.toFixed(2)} (${shiftLabel}). Below Large threshold for Reliable.`;
+  }
+  return {
+    mode: 'regime', sensitivity, active,
+    grade: currGrade, explanation,
+    frame13: curr13, framePrev13: prev13,
+    metricsCurr: mCurr, metricsPrev: mPrev,
+    shiftScore: shift, shiftLabel,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODULE 2 — Distortion Index (12-spin frame, 0–10)
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Calculates the Distortion Index for the last 12 non-zero spins.
+ * Expected per dozen = 4 (12 spins / 3 dozens)
+ * deviation = |D1−4| + |D2−4| + |D3−4|
+ * distortionIndex = (deviation / 12) × 10
+ */
+function distortionIndex(hist) {
+  const nonZero = getNonZeroSpins(hist);
+  if (nonZero.length < 12) return null;
+  const frame12 = nonZero.slice(-12);
+  const { d1, d2, d3 } = countDozens(frame12);
+  const expected = 4;
+  const dev1 = Math.abs(d1 - expected);
+  const dev2 = Math.abs(d2 - expected);
+  const dev3 = Math.abs(d3 - expected);
+  const deviation = dev1 + dev2 + dev3;
+  const index = parseFloat(((deviation / 12) * 10).toFixed(2));
+  const counts = [{ dozen:1, count:d1 }, { dozen:2, count:d2 }, { dozen:3, count:d3 }];
+  const sorted = [...counts].sort((a, b) => b.count - a.count);
+  return {
+    frame12: [d1, d2, d3],
+    deviations: [dev1, dev2, dev3],
+    deviation,
+    distortionIndex: index,
+    dominantDozen: sorted[0].dozen,
+    weakestDozen: sorted[2].dozen,
+  };
+}
+
+// ──────────────────────────────────────────────────────────────
+// PATTERN TAB — analyze
+// ──────────────────────────────────────────────────────────────
+function calcEntropy(probs) {
+  return -probs.reduce((s, p) => s + (p > 0 ? p * Math.log(p + 1e-9) : 0), 0);
+}
+
+function analyzePattern() {
+  const n = history.length;
+  document.getElementById('stat-total').textContent = n;
+  document.getElementById('stat-last').textContent  = n > 0 ? history[n-1] : '—';
+
+  // Streak
+  if (n >= 2) {
+    const last = history[n-1];
+    let streak = 1;
+    for (let i = n-2; i >= 0; i--) { if (getDozen(history[i]) === getDozen(last)) streak++; else break; }
+    const dz = last === 0 ? 'Zero' : last <= 12 ? 'D1' : last <= 24 ? 'D2' : 'D3';
+    document.getElementById('stat-streak').textContent = streak > 1 ? `${streak}× ${dz}` : '—';
+  } else {
+    document.getElementById('stat-streak').textContent = '—';
+  }
+
+  // Zeros count + most frequent number
+  const zeroCount = history.filter(x => x === 0).length;
+  document.getElementById('stat-zeros').textContent = zeroCount;
+
+  // Most frequent number overall
+  if (n > 0) {
+    const freq = {};
+    for (const x of history) freq[x] = (freq[x] || 0) + 1;
+    const [topNum, topCnt] = Object.entries(freq).sort((a,b) => b[1]-a[1])[0];
+    document.getElementById('stat-freq').textContent = `${topNum} (${topCnt}×)`;
+  } else {
+    document.getElementById('stat-freq').textContent = '—';
+  }
+
+  if (n === 0) { resetPatternDisplays(); return; }
+
+  const last36 = history.slice(-36);
+  let f=0, s=0, t=0, z=0;
+  for (const x of last36) {
+    if (x === 0) z++;
+    else if (x <= 12) f++;
+    else if (x <= 24) s++;
+    else t++;
+  }
+  const tot = last36.length;
+  const nz = f + s + t || 1;
+  const pf = f / nz, ps = s / nz, pt = t / nz;
+  const pfT = f / tot, psT = s / tot, ptT = t / tot, pzT = z / tot;
+
+  document.getElementById('pct-first').textContent  = (pfT * 100).toFixed(1) + '%';
+  document.getElementById('pct-second').textContent = (psT * 100).toFixed(1) + '%';
+  document.getElementById('pct-third').textContent  = (ptT * 100).toFixed(1) + '%';
+  ['first','second','third'].forEach(d => document.getElementById('card-'+d).classList.remove('active'));
+
+  ['first','second','third'].forEach((d, i) => {
+    const pct = [pfT, psT, ptT][i];
+    document.getElementById('bar-'+d).style.width    = (pct * 100) + '%';
+    document.getElementById('barpct-'+d).textContent = (pct * 100).toFixed(0) + '%';
+  });
+  document.getElementById('bar-zero').style.width    = (pzT * 100) + '%';
+  document.getElementById('barpct-zero').textContent = (pzT * 100).toFixed(0) + '%';
+
+  let even=0, odd=0, z2=0;
+  for (const x of last36) { if (x===0) z2++; else if (x%2===0) even++; else odd++; }
+  document.getElementById('par-even').textContent = (even/tot*100).toFixed(1) + '%';
+  document.getElementById('par-odd').textContent  = (odd/tot*100).toFixed(1) + '%';
+  document.getElementById('par-zero').textContent = (z2/tot*100).toFixed(1) + '%';
+
+  let lo=0, hi=0;
+  for (const x of last36) { if (x>=1&&x<=18) lo++; else if (x>=19) hi++; }
+  document.getElementById('range-low').textContent    = (lo/tot*100).toFixed(1) + '%';
+  document.getElementById('range-high').textContent   = (hi/tot*100).toFixed(1) + '%';
+  document.getElementById('range-winner').textContent = lo > hi ? 'LOW' : hi > lo ? 'HIGH' : 'EQUAL';
+
+  const freq = {};
+  for (const x of last36) freq[x] = (freq[x]||0) + 1;
+  const hotEl = document.getElementById('hotNumbers');
+  hotEl.innerHTML = Object.entries(freq).sort((a,b) => b[1]-a[1]).slice(0, 6).map(([num, cnt]) => {
+    const ni = parseInt(num);
+    const cls = ni===0 ? 'chip-zero' : RED_NUMS.has(ni) ? 'chip-red' : 'chip-black';
+    return `<div class="history-chip ${cls}" title="${cnt}×">${num}</div>`;
+  }).join('');
+
+  if (n < 12) {
+    document.getElementById('predMain').textContent    = '—';
+    document.getElementById('predSub').textContent     = `Need ${12-n} more spins`;
+    document.getElementById('confFill').style.width    = '0%';
+    document.getElementById('confLabel').textContent   = 'Confidence: —';
+    document.getElementById('entropyVal').textContent  = '—';
+    document.getElementById('entropyBar').style.width  = '0%';
+    document.getElementById('predictionBox').classList.remove('has-prediction');
+    document.getElementById('infoBox').className    = 'alert-box alert-info';
+    document.getElementById('infoBox').textContent  = `Add ${12-n} more spins for entropy analysis.`;
+    return;
+  }
+
+  const ent = calcEntropy([pf, ps, pt]);
+  const maxEnt = Math.log(3);
+  document.getElementById('entropyVal').textContent = ent.toFixed(3);
+  document.getElementById('entropyBar').style.width = (ent / maxEnt * 100) + '%';
+  document.getElementById('entropyVal').style.color = ent < 1.0 ? 'var(--green-light)' : ent < 1.05 ? 'var(--gold)' : 'var(--red-light)';
+  document.getElementById('entropyDesc').textContent = ent < 0.9
+    ? `Low entropy (${ent.toFixed(3)}) — Strong pattern in last ${tot} spins.`
+    : ent < 1.05
+    ? `Moderate entropy (${ent.toFixed(3)}) — Weak pattern.`
+    : `High entropy (${ent.toFixed(3)}) — Near-random distribution.`;
+
+  const probs = [pf, ps, pt];
+  const dozShort  = ['1st Dozen','2nd Dozen','3rd Dozen'];
+  const dozKeys   = ['first','second','third'];
+  const dozNames  = ['First Dozen (1–12)','Second Dozen (13–24)','Third Dozen (25–36)'];
+  const biasIdx   = probs.indexOf(Math.max(...probs));
+  const biasProb  = probs[biasIdx];
+  const dom = biasProb - 0.333;
+  let conf = 0;
+  if (ent < 0.9) { conf = Math.min(90, 55 + dom*150); document.getElementById('card-'+dozKeys[biasIdx]).classList.add('active'); }
+  else if (ent < 1.05 && dom > 0.05) { conf = Math.min(60, 35 + dom*80); document.getElementById('card-'+dozKeys[biasIdx]).classList.add('active'); }
+
+  document.getElementById('predictionBox').classList.toggle('has-prediction', conf > 0);
+  document.getElementById('predMain').textContent  = conf > 0 ? dozShort[biasIdx] : 'No Pattern';
+  document.getElementById('predSub').textContent   = conf > 0 ? `${(biasProb*100).toFixed(1)}% of last ${tot} spins` : 'Distribution appears random';
+  document.getElementById('confFill').style.width  = conf + '%';
+  document.getElementById('confLabel').textContent = conf > 0 ? `Confidence: ${conf.toFixed(1)}%` : 'Confidence: —';
+
+  const infoEl = document.getElementById('infoBox');
+  if (conf > 50) {
+    infoEl.className = 'alert-box alert-warning';
+    infoEl.textContent = `Pattern detected: ${dozNames[biasIdx]} — ${(biasProb*100).toFixed(0)}% of recent spins. Past results do not guarantee future outcomes.`;
+  } else {
+    infoEl.className = 'alert-box alert-info';
+    infoEl.textContent = `No strong pattern. Entropy ${ent.toFixed(3)} — near-random distribution.`;
+  }
+}
+
+function resetPatternDisplays() {
+  ['first','second','third'].forEach(d => {
+    document.getElementById('pct-'+d).textContent      = '—';
+    document.getElementById('bar-'+d).style.width      = '0%';
+    document.getElementById('barpct-'+d).textContent   = '0%';
+    document.getElementById('card-'+d).classList.remove('active');
+  });
+  document.getElementById('bar-zero').style.width    = '0%';
+  document.getElementById('barpct-zero').textContent = '0%';
+  ['par-even','par-odd','par-zero','range-low','range-high'].forEach(id => document.getElementById(id).textContent = '—');
+  document.getElementById('range-winner').textContent = '—';
+  document.getElementById('predMain').textContent    = '—';
+  document.getElementById('predSub').textContent     = 'Add at least 12 spins';
+  document.getElementById('confFill').style.width    = '0%';
+  document.getElementById('confLabel').textContent   = 'Confidence: —';
+  document.getElementById('entropyVal').textContent  = '—';
+  document.getElementById('entropyBar').style.width  = '0%';
+  document.getElementById('hotNumbers').innerHTML    = '<span style="font-size:10px;color:var(--text-dim)">No data</span>';
+  document.getElementById('predictionBox').classList.remove('has-prediction');
+  document.getElementById('infoBox').className   = 'alert-box alert-info';
+  document.getElementById('infoBox').textContent = 'Add spins to begin analysis. Needs at least 12 results.';
+  document.getElementById('stat-last').textContent   = '—';
+  document.getElementById('stat-streak').textContent = '—';
+  document.getElementById('stat-zeros').textContent  = '0';
+  document.getElementById('stat-freq').textContent   = '—';
+}
+
+// ──────────────────────────────────────────────────────────────
+// PERSISTENCE TAB — render
+// ──────────────────────────────────────────────────────────────
+const DOZEN_CLASSES = ['', 'frame-d1', 'frame-d2', 'frame-d3'];
+
+function analyzePersistence() {
+  const sensitivity = document.getElementById('sensitivity').value;
+  const signalMode  = document.getElementById('signalMode').value;
+  const result      = distortionPersistence(history, sensitivity, signalMode);
+  const nonZero     = getNonZeroSpins(history);
+  const minSpins    = (signalMode === 'twowindow' || signalMode === 'regime') ? 26 : 13;
+  const frame       = nonZero.slice(-13);
+  const fv          = document.getElementById('frame13Visual');
+
+  const txt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const htm = (id, v) => { const e = document.getElementById(id); if (e) e.innerHTML   = v; };
+
+  /* ── Not enough data ── */
+  if (nonZero.length < minSpins) {
+    const needed = minSpins - nonZero.length;
+    fv.innerHTML = `<span style="font-size:10px;color:var(--text-dim)">Need ${needed} more non-zero spins (${nonZero.length}/${minSpins})…</span>`;
+    renderHeuristics(null);
+
+    ['dcc1-count','dcc2-count','dcc3-count'].forEach(id => txt(id, '—'));
+    ['dcc1-bar','dcc2-bar','dcc3-bar','pb1','pb2','pb3'].forEach(id => document.getElementById(id).style.width = '0%');
+    ['pbp1','pbp2','pbp3'].forEach(id => txt(id, '—'));
+
+    txt('signalValue', '—');
+    txt('signalFrame', 'Awaiting data…');
+    document.getElementById('signalBox').className = 'signal-box signal-inactive';
+
+    ['rc-d1','rc-d2','rc-d3','rc-sorted','rc-gap','rc-pmax','rc-hnorm'].forEach(id => txt(id, '—'));
+
+    const pill = document.getElementById('rc-status-pill');
+    if (pill) { pill.textContent = 'Inactive'; pill.className = 'status-pill pill-inactive'; }
+    const badge = document.getElementById('rc-strength');
+    if (badge) { badge.textContent = '—'; badge.className = 'strength-badge strength-none'; }
+
+    txt('rc-explanation', `Awaiting ${minSpins}+ non-zero spins…`);
+    const mc = document.getElementById('rcModeCard');
+    if (mc) mc.style.display = 'none';
+    return;
+  }
+
+  /* ── Frame chips ── */
+  fv.innerHTML = frame.map((n, i) => {
+    const d   = getDozen(n);
+    const cls = d ? DOZEN_CLASSES[d] : 'frame-z';
+    return `<div class="frame-slot"><div class="frame-chip ${cls}">${n}</div><div class="frame-idx">${i+1}</div></div>`;
+  }).join('');
+
+  /* ── Main metrics ── */
+  const dm = result.metrics13 || result.metricsCurr;
+  const [d1, d2, d3] = dm.counts;
+
+  document.getElementById('dcc1-count').textContent = d1;
+  document.getElementById('dcc1-bar').style.width   = (d1/13*100) + '%';
+  document.getElementById('dcc2-count').textContent = d2;
+  document.getElementById('dcc2-bar').style.width   = (d2/13*100) + '%';
+  document.getElementById('dcc3-count').textContent = d3;
+  document.getElementById('dcc3-bar').style.width   = (d3/13*100) + '%';
+
+  const dominantDozen = dm.counts.indexOf(Math.max(...dm.counts)) + 1;
+  const weakestDozen  = dm.counts.indexOf(Math.min(...dm.counts)) + 1;
+  renderHeuristics({ dominantDozen, weakestDozen });
+
+  ['dcc1','dcc2','dcc3'].forEach(id => document.getElementById(id).className = 'dozen-count-card');
+  const dClassMap = { 1:'dominant dominant-d1', 2:'dominant dominant-d2', 3:'dominant dominant-d3' };
+  document.getElementById(['dcc1','dcc2','dcc3'][dominantDozen-1]).className = 'dozen-count-card ' + dClassMap[dominantDozen];
+
+  document.getElementById('pb1').style.width  = (d1/13*100) + '%'; txt('pbp1', d1);
+  document.getElementById('pb2').style.width  = (d2/13*100) + '%'; txt('pbp2', d2);
+  document.getElementById('pb3').style.width  = (d3/13*100) + '%'; txt('pbp3', d3);
+
+  /* ── Signal box ── */
+  const signalLabel = result.active ? 'ACTIVE — ' + result.grade : 'INACTIVE';
+  const sb = document.getElementById('signalBox');
+  sb.className = 'signal-box ' + (result.active ? 'signal-active' : 'signal-inactive');
+  document.getElementById('signalValue').textContent  = signalLabel;
+  document.getElementById('signalValue').style.color  = result.active ? 'var(--green-light)' : 'var(--text-dim)';
+  document.getElementById('signalFrame').textContent  = `Mode: ${signalMode} | Sensitivity: ${sensitivity}`;
+
+  /* ── Frame results card ── */
+  htm('rc-d1', `<span class="val-d1">${d1}</span>`);
+  htm('rc-d2', `<span class="val-d2">${d2}</span>`);
+  htm('rc-d3', `<span class="val-d3">${d3}</span>`);
+  txt('rc-sorted', dm.sorted.join(' › '));
+  txt('rc-gap',    dm.gap);
+  txt('rc-pmax',   (dm.pmax * 100).toFixed(1) + '%');
+  txt('rc-hnorm',  dm.Hnorm.toFixed(3));
+
+  /* ── Signal results card ── */
+  const pill = document.getElementById('rc-status-pill');
+  if (pill) { pill.textContent = result.active ? 'ACTIVE' : 'INACTIVE'; pill.className = 'status-pill ' + (result.active ? 'pill-active' : 'pill-inactive'); }
+  const badge = document.getElementById('rc-strength');
+  if (badge) { badge.textContent = result.grade; badge.className = 'strength-badge strength-' + gradeClass(result.grade); }
+  txt('rc-explanation', result.explanation);
+
+  /* ── Mode-specific card ── */
+  const mc = document.getElementById('rcModeCard');
+  const mh = document.getElementById('rcModeHeader');
+  const mb = document.getElementById('rcModeBody');
+  if (mc && mh && mb) {
+    mc.style.display = 'block';
+    if (signalMode === 'twowindow') {
+      mh.textContent = 'Two-Window Confirmation';
+      const m13 = result.metrics13, m26 = result.metrics26;
+      mb.innerHTML = `
+        <div class="rc-subsection">Window 13</div>
+        <div class="rc-row"><span class="rc-key">Counts</span><span class="rc-val"><span class="val-d1">${m13.counts[0]}</span> · <span class="val-d2">${m13.counts[1]}</span> · <span class="val-d3">${m13.counts[2]}</span></span></div>
+        <div class="rc-row"><span class="rc-key">Gap / Grade</span><span class="rc-val">${m13.gap} — ${result.grade13}</span></div>
+        <div class="rc-row"><span class="rc-key">pMax</span><span class="rc-val">${(m13.pmax*100).toFixed(1)}%</span></div>
+        <div class="rc-row"><span class="rc-key">Hnorm</span><span class="rc-val">${m13.Hnorm.toFixed(3)}</span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-subsection">Window 26</div>
+        <div class="rc-row"><span class="rc-key">Counts</span><span class="rc-val"><span class="val-d1">${m26.counts[0]}</span> · <span class="val-d2">${m26.counts[1]}</span> · <span class="val-d3">${m26.counts[2]}</span></span></div>
+        <div class="rc-row"><span class="rc-key">Gap / Grade</span><span class="rc-val">${m26.gap} — ${result.grade26}</span></div>
+        <div class="rc-row"><span class="rc-key">pMax</span><span class="rc-val">${(m26.pmax*100).toFixed(1)}%</span></div>
+        <div class="rc-row"><span class="rc-key">Hnorm</span><span class="rc-val">${m26.Hnorm.toFixed(3)}</span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-row"><span class="rc-key">Confirmed</span><span class="rc-val" style="color:${result.confirmed?'var(--green-light)':'var(--text-dim)'}">${result.confirmed?'YES':'NO'}</span></div>`;
+    } else if (signalMode === 'gap') {
+      mh.textContent = 'Gap Analysis';
+      const m = result.metrics13;
+      const thresh = sensitivity === 'early' ? 4 : 5;
+      mb.innerHTML = `
+        <div class="rc-row"><span class="rc-key">Gap</span><span class="rc-val">${m.gap}</span></div>
+        <div class="rc-row"><span class="rc-key">Grade</span><span class="rc-val"><span class="strength-badge strength-${gradeClass(result.grade)}">${result.grade}</span></span></div>
+        <div class="rc-row"><span class="rc-key">Threshold</span><span class="rc-val">≥ ${thresh} (${sensitivity})</span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-row"><span class="rc-key">pMax</span><span class="rc-val">${(m.pmax*100).toFixed(1)}%</span></div>
+        <div class="rc-row"><span class="rc-key">Hnorm</span><span class="rc-val">${m.Hnorm.toFixed(3)}</span></div>`;
+    } else if (signalMode === 'regime') {
+      mh.textContent = 'Regime Shift';
+      const prev = result.metricsPrev.counts, curr = result.metricsCurr.counts;
+      const sClass = result.shiftLabel==='Small'?'mild':result.shiftLabel==='Medium'?'moderate':'extreme';
+      mb.innerHTML = `
+        <div class="rc-subsection">Previous 13</div>
+        <div class="rc-row"><span class="rc-key">Counts</span><span class="rc-val"><span class="val-d1">${prev[0]}</span> · <span class="val-d2">${prev[1]}</span> · <span class="val-d3">${prev[2]}</span></span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-subsection">Current 13</div>
+        <div class="rc-row"><span class="rc-key">Counts</span><span class="rc-val"><span class="val-d1">${curr[0]}</span> · <span class="val-d2">${curr[1]}</span> · <span class="val-d3">${curr[2]}</span></span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-row"><span class="rc-key">Shift Score</span><span class="rc-val">${result.shiftScore.toFixed(2)}</span></div>
+        <div class="rc-row"><span class="rc-key">Label</span><span class="rc-val"><span class="strength-badge strength-${sClass}">${result.shiftLabel}</span></span></div>`;
+    }
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// DISTORTION INDEX TAB — render
+// ──────────────────────────────────────────────────────────────
+function analyzeDistortionIndex() {
+  const result  = distortionIndex(history);
+  const nonZero = getNonZeroSpins(history);
+  const fv12    = document.getElementById('frame12Visual');
+  const frame12 = nonZero.slice(-12);
+
+  if (nonZero.length < 12) {
+    fv12.innerHTML = `<span style="font-size:10px;color:var(--text-dim)">Need ${12-nonZero.length} more non-zero spins (${nonZero.length}/12)…</span>`;
+    document.getElementById('diValueNum').textContent    = '—';
+    document.getElementById('diValueNum').style.color    = 'var(--text-dim)';
+    document.getElementById('diLevel').className         = 'di-level di-level-null';
+    document.getElementById('diLevel').textContent       = 'Awaiting data';
+    document.getElementById('gaugeNeedle').setAttribute('d','M 20 100 A 80 80 0 0 1 20 100');
+    ['di-frame','di-deviation','di-dominant','di-weakest'].forEach(id => document.getElementById(id).textContent = '—');
+    ['dev1-count','dev2-count','dev3-count'].forEach(id => document.getElementById(id).textContent = '—');
+    ['dev1-diff','dev2-diff','dev3-diff'].forEach(id => { document.getElementById(id).textContent = '—'; document.getElementById(id).className = 'dev-diff'; });
+    ['db1','db2','db3','devbar1','devbar2','devbar3'].forEach(id => document.getElementById(id).style.width = '0%');
+    ['dbp1','dbp2','dbp3','devbarp1','devbarp2','devbarp3'].forEach(id => document.getElementById(id).textContent = '—');
+    ['dev1-label','dev2-label','dev3-label'].forEach(id => document.getElementById(id).textContent = '');
+    document.getElementById('distortionJSON').innerHTML = '<span style="color:var(--border)">// Awaiting 12+ non-zero spins…</span>';
+    return;
+  }
+
+  fv12.innerHTML = frame12.map((n, i) => {
+    const d   = getDozen(n);
+    const cls = d ? DOZEN_CLASSES[d] : 'frame-z';
+    return `<div class="frame-slot"><div class="frame-chip ${cls}">${n}</div><div class="frame-idx">${i+1}</div></div>`;
+  }).join('');
+
+  const [d1, d2, d3]       = result.frame12;
+  const [dev1, dev2, dev3] = result.deviations;
+  const idx = result.distortionIndex;
+
+  document.getElementById('dev1-count').textContent = d1;
+  document.getElementById('dev2-count').textContent = d2;
+  document.getElementById('dev3-count').textContent = d3;
+
+  const fmtDiff  = (raw) => `${raw > 0 ? '+' : ''}${raw} vs expected 4`;
+  const diffClass = (raw) => raw > 0 ? 'dev-diff pos' : raw < 0 ? 'dev-diff neg' : 'dev-diff neu';
+  [d1, d2, d3].forEach((count, i) => {
+    const raw = count - 4;
+    const el = document.getElementById(`dev${i+1}-diff`);
+    el.textContent = fmtDiff(raw);
+    el.className   = diffClass(raw);
+  });
+
+  // Dominant/weakest labels
+  ['devc1','devc2','devc3'].forEach(id => document.getElementById(id).className = 'dev-card');
+  ['dev1-label','dev2-label','dev3-label'].forEach(id => document.getElementById(id).textContent = '');
+  document.getElementById('devc'+result.dominantDozen).className         = 'dev-card dev-dominant';
+  document.getElementById('devc'+result.weakestDozen).className          = 'dev-card dev-weakest';
+  document.getElementById('dev'+result.dominantDozen+'-label').textContent = 'DOMINANT';
+  document.getElementById('dev'+result.weakestDozen+'-label').textContent  = 'WEAKEST';
+
+  // Share bars
+  document.getElementById('db1').style.width = (d1/12*100) + '%'; document.getElementById('dbp1').textContent = d1+'/12';
+  document.getElementById('db2').style.width = (d2/12*100) + '%'; document.getElementById('dbp2').textContent = d2+'/12';
+  document.getElementById('db3').style.width = (d3/12*100) + '%'; document.getElementById('dbp3').textContent = d3+'/12';
+
+  // Deviation bars (max possible single deviation = 8)
+  document.getElementById('devbar1').style.width = (dev1/8*100) + '%'; document.getElementById('devbarp1').textContent = dev1;
+  document.getElementById('devbar2').style.width = (dev2/8*100) + '%'; document.getElementById('devbarp2').textContent = dev2;
+  document.getElementById('devbar3').style.width = (dev3/8*100) + '%'; document.getElementById('devbarp3').textContent = dev3;
+
+  // Gauge needle — semicircle from left (0) to right (10)
+  // Track: M 20 100 A 80 80 0 0 1 180 100 (left→right sweeping clockwise through top)
+  // pct=0 → empty arc; pct=1 → full arc reaching (180,100)
+  const pct = Math.min(idx / 10, 1);
+  if (pct > 0) {
+    const cx = 100, cy = 100, r = 80;
+    const startAngle = Math.PI;         // (20,100) — left side
+    const endAngle   = Math.PI * (1 - pct); // decreases toward 0 (right side)
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const largeArc = pct > 0.5 ? 1 : 0;
+    document.getElementById('gaugeNeedle').setAttribute('d', `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`);
+  } else {
+    document.getElementById('gaugeNeedle').setAttribute('d', 'M 20 100 A 80 80 0 0 1 20 100');
+  }
+
+  const idxColor = idx <= 3 ? 'var(--green-light)' : idx <= 6 ? 'var(--gold)' : 'var(--red-light)';
+  document.getElementById('diValueNum').textContent = idx.toFixed(2);
+  document.getElementById('diValueNum').style.color = idxColor;
+
+  const diLvl = document.getElementById('diLevel');
+  if (idx <= 3) { diLvl.className = 'di-level di-level-low'; diLvl.textContent = `LOW DISTORTION — ${idx.toFixed(2)} / 10`; }
+  else if (idx <= 6) { diLvl.className = 'di-level di-level-mid'; diLvl.textContent = `MODERATE DISTORTION — ${idx.toFixed(2)} / 10`; }
+  else { diLvl.className = 'di-level di-level-high'; diLvl.textContent = `HIGH DISTORTION — ${idx.toFixed(2)} / 10`; }
+
+  const DOZEN_COLORS = ['', 'var(--d1)', 'var(--d2)', 'var(--d3)'];
+  document.getElementById('di-frame').textContent = `[${d1}, ${d2}, ${d3}]`;
+  document.getElementById('di-deviation').textContent = result.deviation + ' / 12 max';
+  document.getElementById('di-dominant').innerHTML = `<span style="color:${DOZEN_COLORS[result.dominantDozen]}">D${result.dominantDozen}</span>`;
+  document.getElementById('di-weakest').innerHTML  = `<span style="color:var(--text-dim)">D${result.weakestDozen}</span>`;
+
+  document.getElementById('distortionJSON').innerHTML = `
+<span class="key">distortion</span> = {<br>
+&nbsp;&nbsp;<span class="key">frame12</span>: [<span class="val-d1">${d1}</span>, <span class="val-d2">${d2}</span>, <span class="val-d3">${d3}</span>],<br>
+&nbsp;&nbsp;<span class="key">deviation</span>: <span class="val-n">${result.deviation}</span>,<br>
+&nbsp;&nbsp;<span class="key">distortionIndex</span>: <span style="color:${idxColor}">${idx.toFixed(2)}</span>,<br>
+&nbsp;&nbsp;<span class="key">dominantDozen</span>: <span style="color:${DOZEN_COLORS[result.dominantDozen]}">D${result.dominantDozen}</span>,<br>
+&nbsp;&nbsp;<span class="key">weakestDozen</span>: <span class="val-n">D${result.weakestDozen}</span><br>
+}`;
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+renderAll();
+if (history.length) showToast(`Restored ${history.length} spins from last session`);
+</script>
+</body>
+</html>
