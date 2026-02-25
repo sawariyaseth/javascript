@@ -810,6 +810,7 @@
   <button class="tab-btn active"  onclick="switchTab('pattern', this)">Pattern Analysis</button>
   <button class="tab-btn"         onclick="switchTab('persistence', this)">Distortion Persistence</button>
   <button class="tab-btn"         onclick="switchTab('distortion', this)">Distortion Index</button>
+  <button class="tab-btn"         onclick="switchTab('ai', this)">AI Insights</button>
 </nav>
 
 <!-- ════════════════════════════════════════════════
@@ -1179,6 +1180,64 @@
 </div>
 
 <!-- ════════════════════════════════════════════════
+     TAB 4 — AI INSIGHTS
+════════════════════════════════════════════════ -->
+<div id="tab-ai" class="tab-panel">
+  <div class="layout">
+    <div class="main-panel">
+      <div class="section-title">AI Analysis</div>
+      <p style="color:var(--text-dim); font-size:13px; margin-bottom:20px;">
+        Choose an AI provider to analyze your spin history. Cloud providers need an API key.
+      </p>
+
+      <!-- Provider Selection -->
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin-bottom:16px;">
+        <div>
+          <div class="input-label">Provider</div>
+          <select id="aiProvider" onchange="onProviderChange()" style="background:var(--bg-dark); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:4px; font-family:var(--font-mono); font-size:13px; cursor:pointer;">
+            <option value="groq">Groq (Free &amp; Fast)</option>
+            <option value="gemini">Google Gemini (Free)</option>
+            <option value="openai">OpenAI</option>
+            <option value="ollama">Ollama (Local)</option>
+          </select>
+        </div>
+        <div>
+          <div class="input-label">Model</div>
+          <input type="text" id="aiModel" value="llama-3.1-8b-instant" style="background:var(--bg-dark); border:1px solid var(--border); color:var(--text); padding:8px; border-radius:4px; width:200px; font-family:var(--font-mono); font-size:13px;" />
+        </div>
+        <div id="apiKeyGroup">
+          <div class="input-label">API Key</div>
+          <input type="password" id="aiApiKey" placeholder="Paste your API key" style="background:var(--bg-dark); border:1px solid var(--border); color:var(--text); padding:8px; border-radius:4px; width:260px; font-family:var(--font-mono); font-size:13px;" />
+        </div>
+      </div>
+
+      <!-- Provider Info -->
+      <div id="providerInfo" style="background:var(--bg-dark); border:1px solid var(--border); border-radius:4px; padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--text-dim);">
+        <strong style="color:var(--gold)">Groq</strong> — Free, blazing fast inference. Get a key at <a href="https://console.groq.com/keys" target="_blank" style="color:var(--blue)">console.groq.com/keys</a>
+      </div>
+
+      <div class="controls-row" style="margin-bottom: 20px;">
+        <button class="spin-btn" onclick="explainCharts()" id="btnExplain">Explain Charts</button>
+        <button class="spin-btn" onclick="detectAnomalies()" id="btnAnomalies">Detect Anomalies</button>
+      </div>
+
+      <div class="input-label">AI Response</div>
+      <div class="output-box" id="aiOutput" style="min-height: 200px; white-space: pre-wrap; font-family: var(--font-sans); line-height: 1.5;">
+        <span style="color:var(--border)">// Choose a provider, enter your API key, and click a button above...</span>
+      </div>
+    </div>
+    
+    <div class="side-panel">
+      <div class="section-title">Metrics Payload</div>
+      <p style="color:var(--text-dim); font-size:12px; margin-bottom:10px;">Data sent to AI:</p>
+      <div class="output-box" id="aiPayloadPreview" style="font-size: 11px;">
+        <span style="color:var(--border)">// Payload preview...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
      JAVASCRIPT
 ════════════════════════════════════════════════ -->
 <script>
@@ -1351,6 +1410,7 @@ function renderAll() {
   analyzePattern();
   analyzePersistence();
   analyzeDistortionIndex();
+  updatePayloadPreview();
 }
 
 // ─── RENDER HISTORY TAPE ─────────────────────────────────────
@@ -2003,6 +2063,232 @@ function analyzeDistortionIndex() {
 &nbsp;&nbsp;<span class="key">dominantDozen</span>: <span style="color:${DOZEN_COLORS[result.dominantDozen]}">D${result.dominantDozen}</span>,<br>
 &nbsp;&nbsp;<span class="key">weakestDozen</span>: <span class="val-n">D${result.weakestDozen}</span><br>
 }`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// AI INSIGHTS TAB — logic
+// ──────────────────────────────────────────────────────────────
+function generateMetricsPayload() {
+  const n = history.length;
+  if (n === 0) return { error: "No spins recorded." };
+
+  const nonZero = getNonZeroSpins(history);
+  
+  // Streaks
+  let longestRed = 0, currRed = 0;
+  let longestBlack = 0, currBlack = 0;
+  let longestHigh = 0, currHigh = 0;
+  let longestLow = 0, currLow = 0;
+  
+  for (const x of history) {
+    if (x === 0) {
+      currRed = 0; currBlack = 0; currHigh = 0; currLow = 0;
+    } else {
+      if (RED_NUMS.has(x)) { currRed++; currBlack = 0; } else { currBlack++; currRed = 0; }
+      if (x >= 19) { currHigh++; currLow = 0; } else { currLow++; currHigh = 0; }
+      
+      if (currRed > longestRed) longestRed = currRed;
+      if (currBlack > longestBlack) longestBlack = currBlack;
+      if (currHigh > longestHigh) longestHigh = currHigh;
+      if (currLow > longestLow) longestLow = currLow;
+    }
+  }
+
+  // Dozen distribution (last 36)
+  const last36 = history.slice(-36);
+  const dozens36 = countDozens(last36);
+  
+  // Overall distribution
+  const dozensAll = countDozens(nonZero);
+
+  return {
+    totalSpins: n,
+    nonZeroSpins: nonZero.length,
+    zeroCount: n - nonZero.length,
+    streaks: {
+      longestRed, longestBlack, longestHigh, longestLow
+    },
+    distributionLast36: dozens36,
+    distributionOverall: dozensAll,
+    recentSpins: history.slice(-15)
+  };
+}
+
+function updatePayloadPreview() {
+  const payload = generateMetricsPayload();
+  const el = document.getElementById('aiPayloadPreview');
+  if (el) {
+    el.textContent = JSON.stringify(payload, null, 2);
+  }
+}
+
+// ─── MULTI-PROVIDER AI ──────────────────────────────────────
+const AI_PROVIDERS = {
+  groq: {
+    name: 'Groq',
+    defaultModel: 'llama-3.1-8b-instant',
+    needsKey: true,
+    info: '<strong style="color:var(--gold)">Groq</strong> — Free, blazing fast inference. Get a key at <a href="https://console.groq.com/keys" target="_blank" style="color:var(--blue)">console.groq.com/keys</a>',
+    models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it', 'mixtral-8x7b-32768']
+  },
+  gemini: {
+    name: 'Google Gemini',
+    defaultModel: 'gemini-2.0-flash',
+    needsKey: true,
+    info: '<strong style="color:var(--gold)">Gemini</strong> — Free tier with generous limits. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue)">aistudio.google.com/apikey</a>',
+    models: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+  },
+  openai: {
+    name: 'OpenAI',
+    defaultModel: 'gpt-4o-mini',
+    needsKey: true,
+    info: '<strong style="color:var(--gold)">OpenAI</strong> — Paid API. Get a key at <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--blue)">platform.openai.com/api-keys</a>',
+    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo']
+  },
+  ollama: {
+    name: 'Ollama (Local)',
+    defaultModel: 'llama3.1:8b',
+    needsKey: false,
+    info: '<strong style="color:var(--gold)">Ollama</strong> — Runs locally, no API key needed. Requires Ollama running on port 11434. Can be slow without a GPU.',
+    models: ['llama3.1:8b', 'mistral', 'phi3']
+  }
+};
+
+function onProviderChange() {
+  const provider = document.getElementById('aiProvider').value;
+  const cfg = AI_PROVIDERS[provider];
+  document.getElementById('aiModel').value = cfg.defaultModel;
+  document.getElementById('providerInfo').innerHTML = cfg.info;
+  document.getElementById('apiKeyGroup').style.display = cfg.needsKey ? 'block' : 'none';
+  // Persist choice
+  localStorage.setItem('roulette_ai_provider', provider);
+}
+
+// Restore saved provider on load
+(function initAiProvider() {
+  const saved = localStorage.getItem('roulette_ai_provider');
+  if (saved && AI_PROVIDERS[saved]) {
+    document.getElementById('aiProvider').value = saved;
+    onProviderChange();
+  } else {
+    onProviderChange(); // set defaults for groq
+  }
+  // Restore API key
+  const savedKey = localStorage.getItem('roulette_ai_key');
+  if (savedKey) document.getElementById('aiApiKey').value = savedKey;
+})();
+
+async function callAI(promptText) {
+  const provider = document.getElementById('aiProvider').value;
+  const model = document.getElementById('aiModel').value;
+  const apiKey = document.getElementById('aiApiKey').value.trim();
+  const outEl = document.getElementById('aiOutput');
+  const cfg = AI_PROVIDERS[provider];
+
+  if (cfg.needsKey && !apiKey) {
+    outEl.innerHTML = `<span style="color:var(--red-light)">Please enter your ${cfg.name} API key above.</span>`;
+    return;
+  }
+
+  // Save key for convenience
+  if (apiKey) localStorage.setItem('roulette_ai_key', apiKey);
+  localStorage.setItem('roulette_ai_provider', provider);
+
+  outEl.innerHTML = `<span style="color:var(--gold)">Thinking... (${cfg.name})</span>`;
+
+  try {
+    let result;
+    if (provider === 'ollama') {
+      result = await callViaOllama(model, promptText);
+    } else if (provider === 'gemini') {
+      result = await callViaGemini(model, apiKey, promptText);
+    } else {
+      // Groq and OpenAI use the same OpenAI-compatible format
+      result = await callViaOpenAICompat(provider, model, apiKey, promptText);
+    }
+    outEl.textContent = result;
+  } catch (e) {
+    outEl.innerHTML = `<span style="color:var(--red-light)">Error (${cfg.name}): ${e.message}</span>`;
+  }
+}
+
+async function callViaOllama(model, prompt) {
+  const response = await fetch('/ollama-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], stream: false })
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  return data.message?.content || JSON.stringify(data);
+}
+
+async function callViaOpenAICompat(provider, model, apiKey, prompt) {
+  // Works for Groq and OpenAI (same API format)
+  const response = await fetch('/api/proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider, model, apiKey,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(err || `HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || JSON.stringify(data);
+}
+
+async function callViaGemini(model, apiKey, prompt) {
+  const response = await fetch('/api/proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: 'gemini', model, apiKey,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(err || `HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(data);
+}
+
+function explainCharts() {
+  const metrics = generateMetricsPayload();
+  if (metrics.error) {
+    document.getElementById('aiOutput').textContent = metrics.error;
+    return;
+  }
+  
+  const prompt = `You are an expert roulette statistical analyst. I will provide you with metrics from my recent roulette spins.
+Please explain the current trends and distributions in plain English. Keep it concise and insightful.
+
+Metrics:
+${JSON.stringify(metrics, null, 2)}`;
+
+  callAI(prompt);
+}
+
+function detectAnomalies() {
+  const metrics = generateMetricsPayload();
+  if (metrics.error) {
+    document.getElementById('aiOutput').textContent = metrics.error;
+    return;
+  }
+  
+  const prompt = `You are an expert roulette statistical analyst. I will provide you with metrics from my recent roulette spins.
+Please flag any statistical anomalies. For example, are there streaks that are rare under randomness? Does the distribution deviate more than expected?
+Be specific and point out the anomalies.
+
+Metrics:
+${JSON.stringify(metrics, null, 2)}`;
+
+  callAI(prompt);
 }
 
 // ─── INIT ────────────────────────────────────────────────────
