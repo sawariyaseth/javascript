@@ -1,3 +1,3 @@
 
 # javascript
-i want to text myself learn something for checking my limits 
+i want to test myself learn something for checking my limits 
