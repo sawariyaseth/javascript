@@ -1,0 +1,4544 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roulette Analyst v6</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --red: #c0392b;
+    --red-light: #e74c3c;
+    --green: #1a6b3a;
+    --green-light: #27ae60;
+    --blue: #3a7bd5;
+    --text: #e8e0d0;
+    --text-dim: #888;
+    --first: #3a7bd5;
+    --second: #c0392b;
+    --third: #27ae60;
+    --d1: #3a7bd5;
+    --d2: #c0392b;
+    --d3: #27ae60;
+    --toast-bg: #1e1e1e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* Subtle radial glow in background */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 500px;
+    background: radial-gradient(ellipse, rgba(201,168,76,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    background: linear-gradient(180deg, #141414 0%, var(--bg) 100%);
+    position: relative;
+    z-index: 10;
+  }
+
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: -0.5px;
+  }
+
+  header .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-left: auto;
+  }
+
+  header span.tagline {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* Session pill */
+  .session-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+  }
+
+  .session-pill:hover { border-color: var(--gold); color: var(--gold); }
+  .session-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green-light);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+  /* ─── TOAST NOTIFICATION ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 10px 18px;
+    background: var(--toast-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--text);
+    z-index: 9999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    letter-spacing: 1px;
+  }
+
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* ─── TAB NAV ─── */
+  .tab-nav {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 40px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .tab-btn {
+    padding: 12px 22px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: -1px;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  /* ─── TAB PANELS ─── */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ─── SHARED LAYOUT ─── */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    min-height: calc(100vh - 120px);
+    position: relative;
+    z-index: 1;
+  }
+
+  .main-panel {
+    padding: 28px 40px;
+    border-right: 1px solid var(--border);
+  }
+
+  .side-panel {
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ─── WHEEL ─── */
+  .wheel-section {
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    margin-bottom: 28px;
+  }
+
+  .wheel-container {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    flex-shrink: 0;
+  }
+
+  .wheel-svg {
+    width: 180px;
+    height: 180px;
+    animation: slowspin 40s linear infinite;
+    filter: drop-shadow(0 0 20px rgba(201,168,76,0.08));
+  }
+
+  @keyframes slowspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .wheel-spinning .wheel-svg { animation: fastspin 0.1s linear infinite; }
+  @keyframes fastspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .wheel-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    z-index: 10;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .wheel-center.pop { transform: translate(-50%, -50%) scale(1.25); }
+
+  .wheel-info h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+
+  .wheel-info p { font-size: 11px; color: var(--text-dim); line-height: 1.7; max-width: 280px; }
+
+  /* ─── QUICK ENTRY ─── */
+  .quick-entry {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    align-items: center;
+  }
+
+  .quick-entry input {
+    width: 72px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    border-radius: 4px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+
+  .quick-entry input:focus { outline: none; border-color: var(--gold); }
+  .quick-entry input::placeholder { color: var(--text-dim); }
+
+  .quick-entry .quick-hint {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  /* ─── NUMBER GRID ─── */
+  .input-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  .number-grid {
+    display: grid;
+    grid-template-columns: repeat(19, 1fr);
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .num-btn {
+    aspect-ratio: 1;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .num-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+
+  .num-btn:active::after { opacity: 0.15; }
+  .num-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.08); transform: translateY(-1px); }
+  .num-btn.red-num { border-color: rgba(192,57,43,0.4); color: #e07070; }
+  .num-btn.red-num:hover { border-color: var(--red-light); background: rgba(192,57,43,0.1); }
+  .num-btn.zero-num { border-color: rgba(39,174,96,0.4); color: #70c07a; }
+  .num-btn.zero-num:hover { border-color: var(--green-light); background: rgba(39,174,96,0.1); }
+
+  /* Flash animation when a number is added */
+  .num-btn.just-added {
+    animation: numflash 0.4s ease;
+  }
+
+  @keyframes numflash {
+    0% { transform: translateY(-1px) scale(1.15); border-color: var(--gold); background: rgba(201,168,76,0.2); }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  .controls-row { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+
+  .spin-btn {
+    flex: 1;
+    padding: 11px;
+    background: var(--gold);
+    color: #0a0a0a;
+    border: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .spin-btn:hover { background: var(--gold-light); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(201,168,76,0.2); }
+  .spin-btn:active { transform: translateY(0); }
+
+  .clear-btn {
+    padding: 11px 14px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .clear-btn:hover { border-color: var(--text-dim); color: var(--text); }
+
+  .export-btn {
+    padding: 11px 14px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .export-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* ─── HISTORY TAPE ─── */
+  .history-tape {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    min-height: 36px;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 24px;
+    scroll-behavior: smooth;
+  }
+
+  .history-tape::-webkit-scrollbar { width: 4px; }
+  .history-tape::-webkit-scrollbar-track { background: transparent; }
+  .history-tape::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .history-chip {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 500;
+    animation: chipin 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    cursor: default;
+    transition: transform 0.1s;
+  }
+
+  .history-chip:hover { transform: scale(1.2); z-index: 1; position: relative; }
+  .history-chip.latest { box-shadow: 0 0 0 2px var(--gold); }
+
+  @keyframes chipin { from { transform: scale(0) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(0deg); opacity: 1; } }
+
+  .chip-red   { background: rgba(192,57,43,0.3); border: 1px solid var(--red); color: #e07070; }
+  .chip-black { background: rgba(50,50,50,0.5);  border: 1px solid #444;       color: #aaa; }
+  .chip-zero  { background: rgba(39,174,96,0.2); border: 1px solid var(--green-light); color: #70c07a; }
+
+  /* ─── ANALYSIS CARDS ─── */
+  .analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .analysis-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 12px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .analysis-card.active { border-color: var(--gold); background: rgba(201,168,76,0.05); }
+
+  .card-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  .card-pct { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; margin-bottom: 2px; }
+  .card-range { font-size: 9px; color: var(--text-dim); }
+
+  .first-color  { color: var(--first); }
+  .second-color { color: var(--red-light); }
+  .third-color  { color: var(--green-light); }
+
+  /* ─── BARS ─── */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .bar-label { font-size: 10px; color: var(--text-dim); width: 56px; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+  .bar-pct { font-size: 10px; color: var(--text-dim); width: 34px; text-align: right; flex-shrink: 0; }
+
+  /* ─── SIDE CARDS ─── */
+  .prediction-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s;
+  }
+
+  .prediction-box.has-prediction { border-color: var(--gold); }
+
+  .prediction-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .prediction-box.has-prediction::before { opacity: 1; }
+
+  .pred-title { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+  .pred-main { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 900; color: var(--gold); margin-bottom: 4px; }
+  .pred-sub { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
+
+  .confidence-bar { height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+  .confidence-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-light)); border-radius: 2px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+  .confidence-label { font-size: 10px; color: var(--text-dim); }
+
+  .entropy-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+  }
+
+  .entropy-title { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+  .entropy-value { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; margin-bottom: 7px; }
+  .entropy-desc { font-size: 10px; color: var(--text-dim); line-height: 1.5; }
+
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-key { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+  .stat-val { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--text); }
+
+  .section-title { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+  .alert-box { padding: 10px 14px; border-radius: 4px; font-size: 11px; line-height: 1.5; }
+  .alert-warning { background: rgba(201,168,76,0.08); border: 1px solid rgba(201,168,76,0.3); color: var(--gold); }
+  .alert-info    { background: rgba(58,123,213,0.08);  border: 1px solid rgba(58,123,213,0.3);  color: #7ab3e8; }
+  .alert-active  { background: rgba(39,174,96,0.08);   border: 1px solid rgba(39,174,96,0.4);   color: var(--green-light); }
+
+  .parity-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .parity-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 9px 6px; text-align: center; }
+  .parity-val { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .parity-lbl { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+  .hot-numbers { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  /* ─── MODULE 1: DISTORTION PERSISTENCE ─── */
+  #tab-persistence .layout { grid-template-columns: 1fr 380px; }
+
+  .module-header { margin-bottom: 24px; }
+  .module-header h2 { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--gold); margin-bottom: 6px; }
+  .module-header p { font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+
+  .frame-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    border: 1px solid;
+  }
+
+  .frame-13 { border-color: rgba(58,123,213,0.5); color: var(--blue); background: rgba(58,123,213,0.06); }
+  .frame-12 { border-color: rgba(201,168,76,0.5); color: var(--gold); background: rgba(201,168,76,0.06); }
+
+  .frame-visual {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    align-items: flex-end;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    flex-wrap: wrap;
+  }
+
+  .frame-slot { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 28px; }
+
+  .frame-chip {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    transition: all 0.3s;
+  }
+
+  .frame-d1    { background: rgba(58,123,213,0.25);  border: 1px solid var(--d1); color: #7ab3e8; }
+  .frame-d2    { background: rgba(192,57,43,0.25);   border: 1px solid var(--d2); color: #e07070; }
+  .frame-d3    { background: rgba(39,174,96,0.25);   border: 1px solid var(--d3); color: #70c07a; }
+  .frame-z     { background: rgba(100,100,100,0.15); border: 1px solid #444;       color: #666; }
+  .frame-empty { background: var(--surface2); border: 1px dashed var(--border); color: #333; }
+
+  .frame-idx { font-size: 8px; color: var(--text-dim); }
+
+  /* Dozen count bars — big */
+  .dozen-count-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+
+  .dozen-count-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 12px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .dozen-count-card.dominant { border-width: 2px; }
+  .dozen-count-card.dominant-d1 { border-color: var(--d1); background: rgba(58,123,213,0.06); }
+  .dozen-count-card.dominant-d2 { border-color: var(--d2); background: rgba(192,57,43,0.06); }
+  .dozen-count-card.dominant-d3 { border-color: var(--d3); background: rgba(39,174,96,0.06); }
+
+  .dcc-dozen { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  .dcc-count { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; line-height: 1; margin-bottom: 6px; }
+  .dcc-range { font-size: 9px; color: var(--text-dim); }
+  .dcc-bar   { height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+  .dcc-fill  { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .fill-d1   { background: var(--d1); }
+  .fill-d2   { background: var(--d2); }
+  .fill-d3   { background: var(--d3); }
+
+  .signal-box { border-radius: 8px; padding: 16px 18px; margin-bottom: 20px; border: 1px solid; transition: all 0.4s; }
+  .signal-active   { border-color: rgba(39,174,96,0.5); background: rgba(39,174,96,0.06); }
+  .signal-inactive { border-color: var(--border); background: var(--surface); }
+
+  .signal-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  .signal-value { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .signal-frame { font-size: 11px; color: var(--text-dim); font-family: 'DM Mono', monospace; }
+
+  .persistence-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .control-group { display: flex; flex-direction: column; gap: 6px; }
+  .control-group label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); }
+  .control-group select {
+    padding: 8px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  .control-group select:hover, .control-group select:focus { outline: none; border-color: var(--gold); }
+
+  /* ─── READABLE RESULTS CARD ─── */
+  .results-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .results-card-header { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); padding: 12px 16px 8px; border-bottom: 1px solid var(--border); }
+  .results-card-body { padding: 10px 16px; }
+
+  .rc-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(42,42,42,0.5); }
+  .rc-row:last-child { border-bottom: none; }
+  .rc-key { font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; }
+  .rc-val { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text); text-align: right; }
+  .rc-val.dim { color: var(--text-dim); }
+
+  .status-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .pill-active   { background: rgba(39,174,96,0.15);  border: 1px solid rgba(39,174,96,0.5);  color: var(--green-light); }
+  .pill-inactive { background: rgba(100,100,100,0.1); border: 1px solid rgba(100,100,100,0.3); color: var(--text-dim); }
+
+  .strength-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+  .strength-none     { background: rgba(100,100,100,0.1); color: var(--text-dim); }
+  .strength-mild     { background: rgba(58,123,213,0.12); color: #7ab3e8; }
+  .strength-moderate { background: rgba(201,168,76,0.12); color: var(--gold); }
+  .strength-strong   { background: rgba(192,57,43,0.12);  color: #e0a070; }
+  .strength-extreme  { background: rgba(192,57,43,0.2);   color: var(--red-light); }
+
+  .signal-explanation { font-size: 10px; color: var(--text-dim); line-height: 1.5; padding: 6px 0 2px; font-style: italic; }
+  .rc-separator { height: 1px; background: var(--border); margin: 6px 0; }
+  .rc-subsection { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); opacity: 0.7; padding: 8px 0 4px; }
+
+  /* ─── MODULE 2: DISTORTION INDEX ─── */
+  .di-gauge-container { position: relative; width: 200px; height: 110px; margin: 0 auto 20px; }
+  .di-gauge-svg { width: 200px; height: 110px; }
+
+  .di-value-overlay { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; }
+  .di-value-num { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 900; line-height: 1; transition: color 0.4s; }
+  .di-value-label { font-size: 9px; color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; }
+
+  .deviation-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+
+  .dev-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 8px; text-align: center; transition: all 0.3s; }
+  .dev-card.dev-dominant { border-color: var(--gold); }
+  .dev-card.dev-weakest  { border-color: rgba(100,100,100,0.4); }
+
+  .dev-dozen { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  .dev-count { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; margin-bottom: 2px; }
+  .dev-diff  { font-size: 10px; }
+  .dev-diff.pos { color: var(--red-light); }
+  .dev-diff.neg { color: var(--blue); }
+  .dev-diff.neu { color: var(--text-dim); }
+  .dev-label { font-size: 8px; color: var(--text-dim); margin-top: 4px; letter-spacing: 1px; }
+
+  .di-level { padding: 8px 14px; border-radius: 6px; text-align: center; font-size: 11px; font-weight: 500; letter-spacing: 1px; margin-bottom: 16px; border: 1px solid; }
+  .di-level-low  { background: rgba(39,174,96,0.08);  border-color: rgba(39,174,96,0.3);  color: var(--green-light); }
+  .di-level-mid  { background: rgba(201,168,76,0.08); border-color: rgba(201,168,76,0.3); color: var(--gold); }
+  .di-level-high { background: rgba(192,57,43,0.08);  border-color: rgba(192,57,43,0.3);  color: var(--red-light); }
+  .di-level-null { background: var(--surface); border-color: var(--border); color: var(--text-dim); }
+
+  .frame12-visual { display: flex; gap: 3px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+
+  .output-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 14px; font-size: 10px; color: var(--text-dim); line-height: 1.8; font-family: 'DM Mono', monospace; }
+  .output-box .key { color: var(--gold); }
+  .output-box .val-d1 { color: #7ab3e8; }
+  .output-box .val-d2 { color: #e07070; }
+  .output-box .val-d3 { color: #70c07a; }
+  .val-d1 { color: #7ab3e8; }
+  .val-d2 { color: #e07070; }
+  .val-d3 { color: #70c07a; }
+  .output-box .val-n { color: var(--text); }
+
+  /* ─── AI CHAT UI ─── */
+  .ai-chat-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    height: calc(100vh - 120px);
+    gap: 0;
+  }
+
+  .ai-chat-main {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .ai-chat-header {
+    padding: 18px 28px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #141414 0%, var(--bg) 100%);
+  }
+
+  .ai-chat-header h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+
+  .ai-chat-header p {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .ai-config-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .ai-config-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .ai-config-group label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .ai-config-group select,
+  .ai-config-group input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+
+  .ai-config-group select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 26px;
+    background-color: var(--surface2);
+    cursor: pointer;
+  }
+
+  .ai-config-group select:focus,
+  .ai-config-group input:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
+
+  #apiKeyGroup input { width: 220px; }
+
+  .ai-provider-badge {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    line-height: 1.5;
+    max-width: 320px;
+    align-self: flex-end;
+  }
+
+  /* Messages area */
+  .ai-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scroll-behavior: smooth;
+  }
+
+  .ai-messages::-webkit-scrollbar { width: 4px; }
+  .ai-messages::-webkit-scrollbar-track { background: transparent; }
+  .ai-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .chat-msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 90%;
+    animation: msgIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .chat-msg.user { align-self: flex-end; align-items: flex-end; }
+  .chat-msg.ai   { align-self: flex-start; align-items: flex-start; }
+
+  .chat-msg-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chat-msg-label .ai-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: pulse 2s infinite;
+  }
+
+  .chat-bubble-user {
+    background: rgba(201,168,76,0.1);
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 10px 10px 2px 10px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--gold-light);
+    letter-spacing: 0.5px;
+    line-height: 1.6;
+  }
+
+  .chat-bubble-ai {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px 10px 10px 10px;
+    padding: 0;
+    overflow: hidden;
+    width: 100%;
+    max-width: 700px;
+  }
+
+  /* Structured AI response sections */
+  .ai-section {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .ai-section:last-child { border-bottom: none; }
+
+  .ai-section-label {
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  /* Final recommendation box — prominent */
+  .ai-final-rec {
+    padding: 16px 18px;
+    background: linear-gradient(135deg, rgba(201,168,76,0.12) 0%, rgba(201,168,76,0.04) 100%);
+    border-top: 2px solid var(--gold);
+  }
+
+  .ai-final-rec-label {
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ai-final-rec-label::before {
+    content: '★';
+    font-size: 10px;
+  }
+
+  .ai-final-bet {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--gold-light);
+    margin-bottom: 4px;
+    letter-spacing: -0.5px;
+  }
+
+  .ai-final-reason {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .ai-confidence-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .ai-conf-label { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; flex-shrink: 0; }
+
+  .ai-conf-bar {
+    flex: 1;
+    height: 3px;
+    background: rgba(201,168,76,0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .ai-conf-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  .ai-conf-pct { font-size: 10px; color: var(--gold); font-weight: 500; flex-shrink: 0; }
+
+  /* Anomaly badges */
+  .anomaly-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .anomaly-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .anomaly-badge {
+    flex-shrink: 0;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-top: 1px;
+  }
+
+  .badge-high   { background: rgba(192,57,43,0.2);  color: var(--red-light); border: 1px solid rgba(192,57,43,0.4); }
+  .badge-mid    { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+  .badge-low    { background: rgba(58,123,213,0.12); color: #7ab3e8; border: 1px solid rgba(58,123,213,0.3); }
+  .badge-none   { background: rgba(100,100,100,0.1); color: var(--text-dim); border: 1px solid rgba(100,100,100,0.2); }
+
+  /* Typing indicator */
+  .typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px 10px 10px 10px;
+    width: fit-content;
+    align-self: flex-start;
+  }
+
+  .typing-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: typingBounce 1.2s infinite;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* Empty state */
+  .chat-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 40px;
+  }
+
+  .chat-empty-icon {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: var(--border);
+    margin-bottom: 8px;
+  }
+
+  .chat-empty h4 {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  .chat-empty p {
+    font-size: 10px;
+    letter-spacing: 1px;
+    max-width: 280px;
+    line-height: 1.7;
+  }
+
+  /* Bottom action bar */
+  .ai-action-bar {
+    padding: 14px 28px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-shrink: 0;
+    background: var(--surface);
+  }
+
+  .ai-action-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+
+  .ai-action-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.06); transform: translateY(-1px); }
+  .ai-action-btn:active { transform: translateY(0); }
+  .ai-action-btn.primary { background: var(--gold); color: #0a0a0a; border-color: var(--gold); font-weight: 600; }
+  .ai-action-btn.primary:hover { background: var(--gold-light); border-color: var(--gold-light); color: #0a0a0a; }
+
+  .ai-action-btn .btn-icon { font-size: 12px; }
+
+  .ai-clear-btn {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .ai-clear-btn:hover { border-color: var(--red-light); color: var(--red-light); }
+
+  /* Right side panel for chat */
+  .ai-side-panel {
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  .ai-side-panel::-webkit-scrollbar { width: 4px; }
+  .ai-side-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .ai-metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .ai-metric-card-header {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: rgba(201,168,76,0.03);
+  }
+
+  .ai-metric-card-body {
+    padding: 8px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.8;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+
+  .ai-metric-card-body::-webkit-scrollbar { width: 3px; }
+  .ai-metric-card-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* Progress indicator for data needed */
+  .needs-data {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .needs-data-circle {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .needs-data span { font-size: 11px; color: var(--text-dim); }
+  .needs-data small { font-size: 9px; color: var(--border); letter-spacing: 2px; text-transform: uppercase; }
+
+  /* ─── KEYBOARD SHORTCUT HINT ─── */
+  .kbd-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    min-width: 18px;
+  }
+
+  @media (max-width: 960px) {
+    .layout, #tab-persistence .layout { grid-template-columns: 1fr; }
+    .number-grid { grid-template-columns: repeat(13, 1fr); }
+    .wheel-section { flex-direction: column; }
+    .side-panel { border-top: 1px solid var(--border); }
+    header { padding: 16px 20px; flex-wrap: wrap; }
+    .main-panel { padding: 20px; }
+    .ai-chat-layout { grid-template-columns: 1fr; height: auto; }
+    .ai-side-panel { display: none; }
+    .ai-chat-main { height: calc(100vh - 200px); }
+  }
+
+  /* ─── LIVE STATUS STRIP ─── */
+  .status-strip {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    position: relative;
+    z-index: 9;
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+
+  .status-strip::-webkit-scrollbar { display: none; }
+
+  .ss-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  .ss-item:first-child { padding-left: 0; }
+  .ss-item:last-child { border-right: none; }
+
+  .ss-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .ss-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    flex-shrink: 0;
+    transition: color 0.3s;
+  }
+
+  .ss-pill {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .ss-pill-active   { background: rgba(39,174,96,0.15);  border: 1px solid rgba(39,174,96,0.5);  color: var(--green-light); }
+  .ss-pill-inactive { background: rgba(100,100,100,0.1); border: 1px solid var(--border);         color: var(--text-dim); }
+  .ss-pill-gold     { background: rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.3);  color: var(--gold); }
+  .ss-pill-red      { background: rgba(192,57,43,0.12);  border: 1px solid rgba(192,57,43,0.3);   color: var(--red-light); }
+
+  /* ─── NUMBER GRID HEATMAP ─── */
+  .num-btn { position: relative; }
+
+  .num-btn .heat-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0%;
+    background: rgba(201,168,76,0.35);
+    transition: height 0.4s ease;
+    border-radius: 0 0 2px 2px;
+    pointer-events: none;
+  }
+
+  .num-btn.heat-cold .heat-bar { background: rgba(58,123,213,0.25); }
+  .num-btn.heat-warm .heat-bar { background: rgba(201,168,76,0.3); }
+  .num-btn.heat-hot  .heat-bar { background: rgba(192,57,43,0.35); }
+  .num-btn.heat-fire .heat-bar { background: rgba(231,76,60,0.5); }
+
+  .num-freq-badge {
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    font-size: 6px;
+    color: rgba(255,255,255,0.5);
+    pointer-events: none;
+  }
+
+  /* ─── HISTORY CHIP REMOVE ─── */
+  .history-chip {
+    cursor: pointer;
+    position: relative;
+  }
+
+  .history-chip:hover::after {
+    content: '×';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(192,57,43,0.7);
+    border-radius: 50%;
+    font-size: 12px;
+    color: white;
+    font-family: sans-serif;
+  }
+
+  /* ─── BULK IMPORT ─── */
+  .bulk-import-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .bulk-import-row input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    border-radius: 4px;
+    transition: border-color 0.2s;
+  }
+
+  .bulk-import-row input:focus { outline: none; border-color: var(--gold); }
+  .bulk-import-row input::placeholder { color: var(--text-dim); }
+
+  .bulk-import-row button {
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .bulk-import-row button:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* ─── STATISTICS TAB ─── */
+  .stats-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    min-height: calc(100vh - 140px);
+  }
+
+  .stats-panel {
+    padding: 28px 32px;
+    border-right: 1px solid var(--border);
+  }
+
+  .stats-panel:last-child { border-right: none; }
+
+  .stats-section-title {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Heatmap grid 0-36 */
+  .heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    margin-bottom: 24px;
+  }
+
+  .hm-cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    transition: all 0.3s;
+    position: relative;
+    cursor: default;
+  }
+
+  .hm-cell .hm-num { font-family: 'DM Mono', monospace; font-size: 10px; }
+  .hm-cell .hm-cnt { font-size: 7px; opacity: 0.7; margin-top: 1px; }
+
+  .hm-zero { background: rgba(39,174,96,0.08);  border-color: rgba(39,174,96,0.2); color: var(--green-light); }
+  .hm-none  { background: var(--surface2);        border-color: var(--border);       color: #333; }
+  .hm-cold  { background: rgba(58,123,213,0.1);   border-color: rgba(58,123,213,0.2); color: #7ab3e8; }
+  .hm-warm  { background: rgba(201,168,76,0.12);  border-color: rgba(201,168,76,0.3); color: var(--gold); }
+  .hm-hot   { background: rgba(192,57,43,0.2);    border-color: rgba(192,57,43,0.4); color: var(--red-light); }
+  .hm-fire  { background: rgba(231,76,60,0.35);   border-color: var(--red-light);    color: #fff; box-shadow: 0 0 8px rgba(231,76,60,0.25); }
+
+  .hm-red-dot {
+    position: absolute;
+    top: 3px; right: 3px;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--red-light);
+    opacity: 0.6;
+  }
+
+  /* Streak stats */
+  .streak-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .streak-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+
+  .streak-card-label { font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  .streak-card-val { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 900; line-height: 1; }
+  .streak-card-sub { font-size: 9px; color: var(--text-dim); margin-top: 4px; }
+
+  /* Distribution over time mini chart */
+  .dozen-timeline {
+    display: flex;
+    gap: 2px;
+    height: 60px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .dt-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 1px;
+    height: 100%;
+    min-width: 4px;
+  }
+
+  .dt-seg {
+    border-radius: 1px;
+    transition: height 0.4s ease;
+  }
+
+  .dt-seg-d1 { background: var(--d1); }
+  .dt-seg-d2 { background: var(--d2); }
+  .dt-seg-d3 { background: var(--d3); }
+  .dt-seg-z  { background: rgba(100,100,100,0.4); }
+
+  .top-numbers-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .top-num-chip {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid;
+  }
+
+  .top-num-chip.red-chip  { background: rgba(192,57,43,0.15); border-color: rgba(192,57,43,0.4); color: #e07070; }
+  .top-num-chip.black-chip{ background: rgba(80,80,80,0.15);  border-color: #444;                color: #ccc; }
+  .top-num-chip.zero-chip { background: rgba(39,174,96,0.15); border-color: rgba(39,174,96,0.4); color: #70c07a; }
+
+  .top-num-chip .chip-freq { font-size: 8px; opacity: 0.7; }
+
+  /* AI side panel conditions dashboard */
+  .ai-conditions-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .acc-header {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(201,168,76,0.03);
+  }
+
+  .acc-header-title { color: var(--gold); }
+
+  .acc-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+
+  .acc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+  }
+
+  .acc-key { color: var(--text-dim); }
+  .acc-val { font-family: 'DM Mono', monospace; color: var(--text); font-size: 10px; }
+
+  .live-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--green-light);
+    animation: pulse 2s infinite;
+    flex-shrink: 0;
+  }
+
+  /* ─── AI CONSISTENCY WARNING ─── */
+  .ai-consistency-warning {
+    padding: 10px 14px;
+    margin: 8px 16px 12px;
+    background: rgba(192,57,43,0.12);
+    border: 1px solid rgba(192,57,43,0.5);
+    border-radius: 6px;
+    font-size: 10px;
+    color: var(--red-light);
+    line-height: 1.6;
+    letter-spacing: 0.5px;
+  }
+  .ai-consistency-warning::before {
+    content: '⚠ CONSISTENCY CHECK FAILED';
+    display: block;
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--red-light);
+  }
+</style>
+</head>
+<body>
+
+<!-- Toast container -->
+<div class="toast" id="toast"></div>
+
+<header>
+  <h1>Roulette Analyst</h1>
+  <div class="header-meta">
+    <span class="tagline">Statistical Analysis Suite · v6</span>
+    <div class="session-pill" onclick="exportHistory()" title="Export spin history">
+      <div class="dot"></div>
+      <span id="headerSpinCount">0 spins</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active"  onclick="switchTab('pattern', this)">Pattern Analysis</button>
+  <button class="tab-btn"         onclick="switchTab('persistence', this)">Distortion Persistence</button>
+  <button class="tab-btn"         onclick="switchTab('distortion', this)">Distortion Index</button>
+  <button class="tab-btn"         onclick="switchTab('stats', this)">Statistics</button>
+  <button class="tab-btn"         onclick="switchTab('ai', this)">AI Insights</button>
+</nav>
+
+<!-- ─── LIVE STATUS STRIP ─── -->
+<div class="status-strip" id="statusStrip">
+  <div class="ss-item">
+    <span class="ss-label">Last</span>
+    <span class="ss-value" id="ss-last" style="color:var(--text-dim)">—</span>
+  </div>
+  <div class="ss-item">
+    <span class="ss-label">Signal</span>
+    <span class="ss-pill ss-pill-inactive" id="ss-signal">INACTIVE</span>
+  </div>
+  <div class="ss-item">
+    <span class="ss-label">Gap</span>
+    <span class="ss-value" id="ss-gap" style="color:var(--text-dim)">—</span>
+  </div>
+  <div class="ss-item">
+    <span class="ss-label">Entropy</span>
+    <span class="ss-value" id="ss-entropy" style="color:var(--text-dim)">—</span>
+  </div>
+  <div class="ss-item">
+    <span class="ss-label">Distortion</span>
+    <span class="ss-value" id="ss-distortion" style="color:var(--text-dim)">—</span>
+  </div>
+  <div class="ss-item">
+    <span class="ss-label">Dominant</span>
+    <span class="ss-value" id="ss-dominant" style="color:var(--text-dim)">—</span>
+  </div>
+  <div class="ss-item">
+    <span class="ss-label">Streak</span>
+    <span class="ss-value" id="ss-streak" style="color:var(--text-dim)">—</span>
+  </div>
+  <div class="ss-item">
+    <span class="ss-label">Approach</span>
+    <span class="ss-pill ss-pill-inactive" id="ss-approach">—</span>
+  </div>
+  <div class="ss-item">
+    <span class="ss-label">Color</span>
+    <span class="ss-value" id="ss-color" style="color:var(--text-dim)">—</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB 1 — PATTERN ANALYSIS
+════════════════════════════════════════════════ -->
+<div id="tab-pattern" class="tab-panel active">
+  <div class="layout">
+    <div class="main-panel">
+
+      <div class="wheel-section">
+        <div class="wheel-container" id="wheelContainer">
+          <svg class="wheel-svg" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="98" fill="#111" stroke="#2a2a2a" stroke-width="1"/>
+            <g id="wheelSegments"></g>
+            <circle cx="100" cy="100" r="20" fill="#0a0a0a" stroke="#c9a84c" stroke-width="1.5"/>
+          </svg>
+          <div class="wheel-center" id="wheelCenter">?</div>
+        </div>
+        <div class="wheel-info">
+          <h2>Pattern Advisor</h2>
+          <p>Enter past spin results by clicking numbers below, typing in the quick-entry field, or simulating random spins. Entropy analysis reveals which dozen shows the strongest statistical trend.</p>
+          <br>
+          <p style="color: var(--gold); font-size: 10px;">⚠ Statistical observation only. Past results do not predict future outcomes.</p>
+        </div>
+      </div>
+
+      <div class="input-label">Quick Entry</div>
+      <div class="quick-entry">
+        <input type="number" id="quickInput" min="0" max="36" placeholder="0–36"
+          onkeydown="handleQuickInput(event)" autocomplete="off" />
+        <span class="kbd-hint"><kbd>Enter</kbd> to add · <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo</span>
+      </div>
+
+      <div class="input-label">Bulk Import</div>
+      <div class="bulk-import-row">
+        <input type="text" id="bulkInput" placeholder="Paste comma-separated: 5, 17, 0, 32, 11…" />
+        <button onclick="bulkImport()">Import</button>
+      </div>
+
+      <div class="input-label">Click to Add Spin Result</div>
+      <div class="number-grid" id="numberGrid"></div>
+      <div class="controls-row">
+        <button class="spin-btn" onclick="addRandom()">▶ Simulate Random Spin</button>
+        <button class="clear-btn" onclick="undoLast()">Undo</button>
+        <button class="clear-btn" onclick="clearHistory()">Clear All</button>
+        <button class="export-btn" onclick="exportHistory()" title="Export history as text">Export</button>
+      </div>
+
+      <div class="input-label">Spin History (<span id="histCount">0</span> spins) <span style="color:var(--border);font-size:9px;letter-spacing:1px">· CLICK CHIP TO REMOVE</span></div>
+      <div class="history-tape" id="historyTape">
+        <span style="font-size:11px;color:var(--text-dim);align-self:center;">No spins recorded yet…</span>
+      </div>
+
+      <div class="input-label" style="margin-bottom:12px;">Dozen Distribution (last 36)</div>
+      <div class="analysis-grid">
+        <div class="analysis-card" id="card-first">
+          <div class="card-label">First Dozen</div>
+          <div class="card-pct first-color" id="pct-first">—</div>
+          <div class="card-range">1 — 12</div>
+        </div>
+        <div class="analysis-card" id="card-second">
+          <div class="card-label">Second Dozen</div>
+          <div class="card-pct second-color" id="pct-second">—</div>
+          <div class="card-range">13 — 24</div>
+        </div>
+        <div class="analysis-card" id="card-third">
+          <div class="card-label">Third Dozen</div>
+          <div class="card-pct third-color" id="pct-third">—</div>
+          <div class="card-range">25 — 36</div>
+        </div>
+      </div>
+
+      <div style="padding:0 2px">
+        <div class="bar-row"><div class="bar-label">1–12</div><div class="bar-track"><div class="bar-fill" id="bar-first" style="width:0%;background:#3a7bd5"></div></div><div class="bar-pct" id="barpct-first">0%</div></div>
+        <div class="bar-row"><div class="bar-label">13–24</div><div class="bar-track"><div class="bar-fill" id="bar-second" style="width:0%;background:#c0392b"></div></div><div class="bar-pct" id="barpct-second">0%</div></div>
+        <div class="bar-row"><div class="bar-label">25–36</div><div class="bar-track"><div class="bar-fill" id="bar-third" style="width:0%;background:#27ae60"></div></div><div class="bar-pct" id="barpct-third">0%</div></div>
+        <div class="bar-row"><div class="bar-label">Zero</div><div class="bar-track"><div class="bar-fill" id="bar-zero" style="width:0%;background:#c9a84c"></div></div><div class="bar-pct" id="barpct-zero">0%</div></div>
+      </div>
+
+    </div>
+
+    <div class="side-panel">
+      <div class="prediction-box" id="predictionBox">
+        <div class="pred-title">Entropy Prediction</div>
+        <div class="pred-main" id="predMain">—</div>
+        <div class="pred-sub" id="predSub">Add at least 12 spins</div>
+        <div class="confidence-bar"><div class="confidence-fill" id="confFill" style="width:0%"></div></div>
+        <div class="confidence-label" id="confLabel">Confidence: —</div>
+      </div>
+
+      <div class="entropy-section">
+        <div class="entropy-title">Entropy Index</div>
+        <div class="entropy-value" id="entropyVal" style="color:var(--text-dim)">—</div>
+        <div class="bar-track" style="margin-bottom:8px"><div class="bar-fill" id="entropyBar" style="width:0%;background:linear-gradient(90deg,#27ae60,#c9a84c,#c0392b)"></div></div>
+        <div class="entropy-desc" id="entropyDesc">Measures randomness. Lower = stronger pattern.</div>
+      </div>
+
+      <div>
+        <div class="section-title">Even / Odd / Zero</div>
+        <div class="parity-grid">
+          <div class="parity-card"><div class="parity-val" style="color:#aaa" id="par-even">—</div><div class="parity-lbl">EVEN</div></div>
+          <div class="parity-card"><div class="parity-val" style="color:#888" id="par-odd">—</div><div class="parity-lbl">ODD</div></div>
+          <div class="parity-card"><div class="parity-val" style="color:var(--green-light)" id="par-zero">—</div><div class="parity-lbl">ZERO</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">High / Low Split</div>
+        <div class="parity-grid">
+          <div class="parity-card"><div class="parity-val" style="color:var(--first)" id="range-low">—</div><div class="parity-lbl">1–18</div></div>
+          <div class="parity-card"><div class="parity-val" style="color:var(--red-light)" id="range-high">—</div><div class="parity-lbl">19–36</div></div>
+          <div class="parity-card"><div class="parity-val" id="range-winner" style="color:var(--gold);font-size:12px">—</div><div class="parity-lbl">TREND</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Hot Numbers (last 36)</div>
+        <div class="hot-numbers" id="hotNumbers"><span style="font-size:10px;color:var(--text-dim)">No data</span></div>
+      </div>
+
+      <div>
+        <div class="section-title">Quick Stats</div>
+        <div class="stat-row"><div class="stat-key">Total Spins</div><div class="stat-val" id="stat-total">0</div></div>
+        <div class="stat-row"><div class="stat-key">Last Result</div><div class="stat-val" id="stat-last">—</div></div>
+        <div class="stat-row"><div class="stat-key">Streak</div><div class="stat-val" id="stat-streak">—</div></div>
+        <div class="stat-row"><div class="stat-key">Zeros Hit</div><div class="stat-val" id="stat-zeros">0</div></div>
+        <div class="stat-row" style="border:none"><div class="stat-key">Most Frequent</div><div class="stat-val" id="stat-freq">—</div></div>
+      </div>
+
+      <div class="alert-info" id="infoBox">Add spins to begin analysis. Needs at least 12 results to compute entropy.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB 2 — DISTORTION PERSISTENCE
+════════════════════════════════════════════════ -->
+<div id="tab-persistence" class="tab-panel">
+  <div class="layout">
+    <div class="main-panel">
+
+      <div class="module-header">
+        <h2>Distortion Persistence</h2>
+        <p>Analyzes the last <strong style="color:var(--text)">N non-zero spins</strong> (filtered, excluding zero). Supports multiple analysis modes including two-window confirmation, gap-based analysis, and regime shift detection.</p>
+      </div>
+
+      <div class="frame-badge frame-13">Non-Zero Frame Analysis</div>
+
+      <div class="persistence-controls">
+        <div class="control-group">
+          <label for="sensitivity">Sensitivity</label>
+          <select id="sensitivity" onchange="analyzePersistence()">
+            <option value="early">Early</option>
+            <option value="reliable" selected>Reliable</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="signalMode">Signal Mode</label>
+          <select id="signalMode" onchange="analyzePersistence()">
+            <option value="twowindow" selected>Two-window (13+26)</option>
+            <option value="gap">Gap (13)</option>
+            <option value="regime">Regime Shift (prev13 vs curr13)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="input-label">Last 13 Non-Zero Spins (oldest → newest)</div>
+      <div class="frame-visual" id="frame13Visual">
+        <span style="font-size:10px;color:var(--text-dim)">Add spins on the Pattern tab first…</span>
+      </div>
+
+      <div class="input-label" style="margin-bottom:12px;">Dozen Counts in Frame</div>
+      <div class="dozen-count-grid">
+        <div class="dozen-count-card" id="dcc1">
+          <div class="dcc-dozen">D1</div>
+          <div class="dcc-count first-color" id="dcc1-count">—</div>
+          <div class="dcc-range">1 – 12</div>
+          <div class="dcc-bar"><div class="dcc-fill fill-d1" id="dcc1-bar" style="width:0%"></div></div>
+        </div>
+        <div class="dozen-count-card" id="dcc2">
+          <div class="dcc-dozen">D2</div>
+          <div class="dcc-count second-color" id="dcc2-count">—</div>
+          <div class="dcc-range">13 – 24</div>
+          <div class="dcc-bar"><div class="dcc-fill fill-d2" id="dcc2-bar" style="width:0%"></div></div>
+        </div>
+        <div class="dozen-count-card" id="dcc3">
+          <div class="dcc-dozen">D3</div>
+          <div class="dcc-count third-color" id="dcc3-count">—</div>
+          <div class="dcc-range">25 – 36</div>
+          <div class="dcc-bar"><div class="dcc-fill fill-d3" id="dcc3-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="signal-box signal-inactive" id="signalBox">
+        <div class="signal-label">Distortion Signal</div>
+        <div class="signal-value" id="signalValue">—</div>
+        <div class="signal-frame" id="signalFrame">Awaiting data…</div>
+      </div>
+
+      <div class="input-label" style="margin-bottom:10px;">Frame Breakdown</div>
+      <div style="padding:0 2px">
+        <div class="bar-row"><div class="bar-label">D1 (1–12)</div><div class="bar-track"><div class="bar-fill" id="pb1" style="width:0%;background:#3a7bd5"></div></div><div class="bar-pct" id="pbp1">—</div></div>
+        <div class="bar-row"><div class="bar-label">D2 (13–24)</div><div class="bar-track"><div class="bar-fill" id="pb2" style="width:0%;background:#c0392b"></div></div><div class="bar-pct" id="pbp2">—</div></div>
+        <div class="bar-row"><div class="bar-label">D3 (25–36)</div><div class="bar-track"><div class="bar-fill" id="pb3" style="width:0%;background:#27ae60"></div></div><div class="bar-pct" id="pbp3">—</div></div>
+      </div>
+
+    </div>
+
+    <div class="side-panel">
+
+      <div class="alert-box alert-warning" id="heuristicBox" style="display:none">
+        <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;opacity:0.9;margin-bottom:6px;">
+          Heuristic (Not a Prediction)
+        </div>
+        <div style="font-size:11px;line-height:1.6;">
+          <div><strong>Momentum:</strong> Current dominant is <span id="heur-momentum"></span>.</div>
+          <div><strong>Reversion:</strong> Current weakest is <span id="heur-reversion"></span>.</div>
+          <div style="margin-top:8px;color:var(--text-dim);font-size:10px;">
+            Roulette spins are independent; this is descriptive, not forecasting.
+          </div>
+        </div>
+      </div>
+
+      <div class="results-card" id="rcFrame">
+        <div class="results-card-header">Current Frame (13 Non-Zero)</div>
+        <div class="results-card-body">
+          <div class="rc-row"><span class="rc-key">D1 count</span><span class="rc-val dim" id="rc-d1">—</span></div>
+          <div class="rc-row"><span class="rc-key">D2 count</span><span class="rc-val dim" id="rc-d2">—</span></div>
+          <div class="rc-row"><span class="rc-key">D3 count</span><span class="rc-val dim" id="rc-d3">—</span></div>
+          <div class="rc-separator"></div>
+          <div class="rc-row"><span class="rc-key">Sorted (a ≥ b ≥ c)</span><span class="rc-val" id="rc-sorted">—</span></div>
+          <div class="rc-row"><span class="rc-key">Gap (a − c)</span><span class="rc-val" id="rc-gap">—</span></div>
+          <div class="rc-row"><span class="rc-key">Dominant share pMax</span><span class="rc-val" id="rc-pmax">—</span></div>
+          <div class="rc-row"><span class="rc-key">Norm. entropy Hnorm</span><span class="rc-val" id="rc-hnorm">—</span></div>
+        </div>
+      </div>
+
+      <div class="results-card" id="rcSignal">
+        <div class="results-card-header">Signal</div>
+        <div class="results-card-body">
+          <div class="rc-row">
+            <span class="rc-key">Status</span>
+            <span class="status-pill pill-inactive" id="rc-status-pill">Inactive</span>
+          </div>
+          <div class="rc-row">
+            <span class="rc-key">Strength</span>
+            <span class="strength-badge strength-none" id="rc-strength">—</span>
+          </div>
+          <div class="signal-explanation" id="rc-explanation">Awaiting data…</div>
+        </div>
+      </div>
+
+      <div class="results-card" id="rcModeCard" style="display:none">
+        <div class="results-card-header" id="rcModeHeader">—</div>
+        <div class="results-card-body" id="rcModeBody"></div>
+      </div>
+
+      <div style="padding:4px 0">
+        <div class="section-title">Gap Severity (N=13)</div>
+        <div style="font-size:10px;color:var(--text-dim);line-height:1.6;padding:0 4px">
+          <div style="display:flex;justify-content:space-between"><span>No distortion</span><span>gap 0–2</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Mild</span><span>gap = 3</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Moderate</span><span>gap = 4</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Strong</span><span>gap = 5</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Extreme</span><span>gap ≥ 6</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB 3 — DISTORTION INDEX
+════════════════════════════════════════════════ -->
+<div id="tab-distortion" class="tab-panel">
+  <div class="layout">
+    <div class="main-panel">
+
+      <div class="module-header">
+        <h2>Distortion Index</h2>
+        <p>Analyzes the last <strong style="color:var(--text)">12 non-zero spins</strong> (filtered, excluding zero). Expected count per dozen = 4. Measures total deviation from expected distribution on a <strong style="color:var(--text)">0–10 scale</strong>.</p>
+      </div>
+
+      <div class="frame-badge frame-12">12-Spin Frame · Scale 0–10</div>
+
+      <div class="input-label">Last 12 Non-Zero Spins (oldest → newest)</div>
+      <div class="frame12-visual" id="frame12Visual">
+        <span style="font-size:10px;color:var(--text-dim)">Add spins on the Pattern tab first…</span>
+      </div>
+
+      <div class="input-label" style="margin-bottom:12px;">Deviation from Expected (4 per dozen)</div>
+      <div class="deviation-grid">
+        <div class="dev-card" id="devc1">
+          <div class="dev-dozen" style="color:var(--d1)">D1 · 1–12</div>
+          <div class="dev-count first-color" id="dev1-count">—</div>
+          <div class="dev-diff" id="dev1-diff">—</div>
+          <div class="dev-label" id="dev1-label"></div>
+        </div>
+        <div class="dev-card" id="devc2">
+          <div class="dev-dozen" style="color:var(--d2)">D2 · 13–24</div>
+          <div class="dev-count second-color" id="dev2-count">—</div>
+          <div class="dev-diff" id="dev2-diff">—</div>
+          <div class="dev-label" id="dev2-label"></div>
+        </div>
+        <div class="dev-card" id="devc3">
+          <div class="dev-dozen" style="color:var(--d3)">D3 · 25–36</div>
+          <div class="dev-count third-color" id="dev3-count">—</div>
+          <div class="dev-diff" id="dev3-diff">—</div>
+          <div class="dev-label" id="dev3-label"></div>
+        </div>
+      </div>
+
+      <div class="input-label" style="margin-bottom:10px;">Per-Dozen Share of Frame</div>
+      <div style="padding:0 2px;margin-bottom:20px">
+        <div class="bar-row"><div class="bar-label">D1 (1–12)</div><div class="bar-track"><div class="bar-fill" id="db1" style="width:0%;background:#3a7bd5"></div></div><div class="bar-pct" id="dbp1">—</div></div>
+        <div class="bar-row"><div class="bar-label">D2 (13–24)</div><div class="bar-track"><div class="bar-fill" id="db2" style="width:0%;background:#c0392b"></div></div><div class="bar-pct" id="dbp2">—</div></div>
+        <div class="bar-row"><div class="bar-label">D3 (25–36)</div><div class="bar-track"><div class="bar-fill" id="db3" style="width:0%;background:#27ae60"></div></div><div class="bar-pct" id="dbp3">—</div></div>
+      </div>
+
+      <div class="input-label" style="margin-bottom:10px;">Deviation Breakdown</div>
+      <div style="padding:0 2px">
+        <div class="bar-row"><div class="bar-label">|D1 − 4|</div><div class="bar-track"><div class="bar-fill" id="devbar1" style="width:0%;background:#3a7bd5"></div></div><div class="bar-pct" id="devbarp1">—</div></div>
+        <div class="bar-row"><div class="bar-label">|D2 − 4|</div><div class="bar-track"><div class="bar-fill" id="devbar2" style="width:0%;background:#c0392b"></div></div><div class="bar-pct" id="devbarp2">—</div></div>
+        <div class="bar-row"><div class="bar-label">|D3 − 4|</div><div class="bar-track"><div class="bar-fill" id="devbar3" style="width:0%;background:#27ae60"></div></div><div class="bar-pct" id="devbarp3">—</div></div>
+      </div>
+
+    </div>
+
+    <div class="side-panel">
+
+      <div>
+        <div class="section-title">Distortion Index (0–10)</div>
+        <div class="di-gauge-container">
+          <svg class="di-gauge-svg" viewBox="0 0 200 110">
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#2a2a2a" stroke-width="14" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   stop-color="#27ae60"/>
+                <stop offset="50%"  stop-color="#c9a84c"/>
+                <stop offset="100%" stop-color="#c0392b"/>
+              </linearGradient>
+            </defs>
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" opacity="0.25"/>
+            <path id="gaugeNeedle" d="M 20 100 A 80 80 0 0 1 20 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round"/>
+            <text x="14"  y="108" fill="#555" font-size="9" font-family="DM Mono">0</text>
+            <text x="92"  y="22"  fill="#555" font-size="9" font-family="DM Mono" text-anchor="middle">5</text>
+            <text x="182" y="108" fill="#555" font-size="9" font-family="DM Mono">10</text>
+          </svg>
+          <div class="di-value-overlay">
+            <div class="di-value-num" id="diValueNum" style="color:var(--text-dim)">—</div>
+            <div class="di-value-label">Distortion Index</div>
+          </div>
+        </div>
+        <div class="di-level di-level-null" id="diLevel">Awaiting data</div>
+      </div>
+
+      <div>
+        <div class="section-title">Index Breakdown</div>
+        <div class="stat-row"><div class="stat-key">Frame (D1, D2, D3)</div><div class="stat-val" id="di-frame">—</div></div>
+        <div class="stat-row"><div class="stat-key">Total Deviation</div><div class="stat-val" id="di-deviation">—</div></div>
+        <div class="stat-row"><div class="stat-key">Formula</div><div class="stat-val" style="font-size:11px;color:var(--text-dim)">dev / 12 × 10</div></div>
+        <div class="stat-row"><div class="stat-key">Dominant Dozen</div><div class="stat-val" id="di-dominant">—</div></div>
+        <div class="stat-row" style="border:none"><div class="stat-key">Weakest Dozen</div><div class="stat-val" id="di-weakest">—</div></div>
+      </div>
+
+      <div class="output-box" id="distortionJSON">
+        <span style="color:var(--border)">// Awaiting 12+ non-zero spins…</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB 5 — STATISTICS
+════════════════════════════════════════════════ -->
+<div id="tab-stats" class="tab-panel">
+  <div class="stats-layout">
+
+    <div class="stats-panel">
+      <div class="stats-section-title">Number Heatmap (All Spins)</div>
+      <div class="heatmap-grid" id="heatmapGrid"></div>
+
+      <div class="stats-section-title">Top 10 Hottest Numbers</div>
+      <div class="top-numbers-row" id="topNumbers">
+        <span style="font-size:11px;color:var(--text-dim)">No data yet</span>
+      </div>
+
+      <div class="stats-section-title">Bottom 5 Coldest Numbers</div>
+      <div class="top-numbers-row" id="coldNumbers">
+        <span style="font-size:11px;color:var(--text-dim)">No data yet</span>
+      </div>
+
+      <div class="stats-section-title">Dozen Distribution Over Time</div>
+      <div class="dozen-timeline" id="dozenTimeline">
+        <span style="font-size:10px;color:var(--text-dim);align-self:center;padding:0 8px">Add spins to see timeline…</span>
+      </div>
+      <div style="display:flex;gap:16px;font-size:9px;color:var(--text-dim);letter-spacing:1px;margin-bottom:20px">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:1px;background:var(--d1);display:inline-block"></span>D1 (1–12)</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:1px;background:var(--d2);display:inline-block"></span>D2 (13–24)</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:1px;background:var(--d3);display:inline-block"></span>D3 (25–36)</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:1px;background:rgba(100,100,100,0.4);display:inline-block"></span>Zero</span>
+      </div>
+    </div>
+
+    <div class="stats-panel">
+      <div class="stats-section-title">Streak Records</div>
+      <div class="streak-grid" id="streakGrid">
+        <div class="streak-card">
+          <div class="streak-card-label">Longest Red</div>
+          <div class="streak-card-val" id="streak-red" style="color:var(--red-light)">—</div>
+          <div class="streak-card-sub">consecutive</div>
+        </div>
+        <div class="streak-card">
+          <div class="streak-card-label">Longest Black</div>
+          <div class="streak-card-val" id="streak-black" style="color:#aaa">—</div>
+          <div class="streak-card-sub">consecutive</div>
+        </div>
+        <div class="streak-card">
+          <div class="streak-card-label">Longest High</div>
+          <div class="streak-card-val" id="streak-high" style="color:var(--gold)">—</div>
+          <div class="streak-card-sub">19–36 streak</div>
+        </div>
+        <div class="streak-card">
+          <div class="streak-card-label">Longest Low</div>
+          <div class="streak-card-val" id="streak-low" style="color:var(--blue)">—</div>
+          <div class="streak-card-sub">1–18 streak</div>
+        </div>
+        <div class="streak-card">
+          <div class="streak-card-label">Zero Gap</div>
+          <div class="streak-card-val" id="streak-zero-gap" style="color:var(--green-light)">—</div>
+          <div class="streak-card-sub">spins since last 0</div>
+        </div>
+        <div class="streak-card">
+          <div class="streak-card-label">Max Zero Gap</div>
+          <div class="streak-card-val" id="streak-zero-max" style="color:var(--green-light)">—</div>
+          <div class="streak-card-sub">longest drought</div>
+        </div>
+      </div>
+
+      <div class="stats-section-title">Session Breakdown</div>
+      <div id="sessionBreakdown">
+        <div class="stat-row"><div class="stat-key">Total Spins</div><div class="stat-val" id="sb-total">0</div></div>
+        <div class="stat-row"><div class="stat-key">Non-Zero Spins</div><div class="stat-val" id="sb-nonzero">0</div></div>
+        <div class="stat-row"><div class="stat-key">Zero Count</div><div class="stat-val" id="sb-zeros">0</div></div>
+        <div class="stat-row"><div class="stat-key">Red Hits</div><div class="stat-val" id="sb-red" style="color:#e07070">0</div></div>
+        <div class="stat-row"><div class="stat-key">Black Hits</div><div class="stat-val" id="sb-black" style="color:#aaa">0</div></div>
+        <div class="stat-row"><div class="stat-key">Even Hits</div><div class="stat-val" id="sb-even">0</div></div>
+        <div class="stat-row"><div class="stat-key">Odd Hits</div><div class="stat-val" id="sb-odd">0</div></div>
+        <div class="stat-row"><div class="stat-key">High (19–36)</div><div class="stat-val" id="sb-high">0</div></div>
+        <div class="stat-row" style="border:none"><div class="stat-key">Low (1–18)</div><div class="stat-val" id="sb-low">0</div></div>
+      </div>
+
+      <div class="stats-section-title" style="margin-top:20px">Numbers Never Hit</div>
+      <div id="neverHit" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+        <span style="font-size:10px;color:var(--text-dim)">All numbers hit or no data</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB 4 — AI INSIGHTS
+════════════════════════════════════════════════ -->
+<div id="tab-ai" class="tab-panel">
+  <div class="ai-chat-layout">
+
+    <!-- LEFT: Chat Interface -->
+    <div class="ai-chat-main">
+
+      <!-- Header -->
+      <div class="ai-chat-header">
+        <h3>AI Analyst</h3>
+        <p>Statistical intelligence · Powered by your chosen AI provider</p>
+      </div>
+
+      <!-- Config Row -->
+      <div class="ai-config-row">
+        <div class="ai-config-group">
+          <label>Provider</label>
+          <select id="aiProvider" onchange="onProviderChange()">
+            <option value="groq">Groq (Free &amp; Fast)</option>
+            <option value="gemini">Google Gemini (Free)</option>
+            <option value="openai">OpenAI</option>
+            <option value="ollama">Ollama (Local)</option>
+          </select>
+        </div>
+        <div class="ai-config-group">
+          <label>Model</label>
+          <input type="text" id="aiModel" value="llama-3.1-8b-instant" style="width:180px;" />
+        </div>
+        <div class="ai-config-group" id="apiKeyGroup">
+          <label>API Key</label>
+          <input type="password" id="aiApiKey" placeholder="Paste your API key" />
+        </div>
+        <div class="ai-provider-badge" id="providerInfo">
+          <strong style="color:var(--gold)">Groq</strong> — Free &amp; fast. Get key at console.groq.com/keys
+        </div>
+      </div>
+
+      <!-- Messages area -->
+      <div class="ai-messages" id="aiMessages">
+        <div class="chat-empty" id="chatEmpty">
+          <div class="chat-empty-icon">◎</div>
+          <h4>Ready to Analyse</h4>
+          <p>Add spin data on the Pattern tab, then ask the AI to explain trends or detect anomalies below.</p>
+        </div>
+      </div>
+
+      <!-- Bottom action bar -->
+      <div class="ai-action-bar">
+        <button class="ai-action-btn" onclick="explainCharts()">
+          <span class="btn-icon">◈</span> Explain Trends
+        </button>
+        <button class="ai-action-btn primary" onclick="detectAnomalies()">
+          <span class="btn-icon">⚡</span> Detect Anomalies + Recommend
+        </button>
+        <button class="ai-action-btn" onclick="getBetAdvice()">
+          <span class="btn-icon">★</span> Get Bet Advice
+        </button>
+        <button class="ai-clear-btn" onclick="clearChat()" title="Clear chat">✕</button>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Live Conditions Dashboard -->
+    <div class="ai-side-panel">
+
+      <div class="ai-conditions-card">
+        <div class="acc-header">
+          <span class="acc-header-title">Distortion Persistence</span>
+          <div class="live-dot"></div>
+        </div>
+        <div class="acc-body" id="cond-persistence">
+          <div class="acc-row"><span class="acc-key">Signal</span><span class="acc-val" id="cp-signal">—</span></div>
+          <div class="acc-row"><span class="acc-key">Gap</span><span class="acc-val" id="cp-gap">—</span></div>
+          <div class="acc-row"><span class="acc-key">Grade</span><span class="acc-val" id="cp-grade">—</span></div>
+          <div class="acc-row"><span class="acc-key">pMax</span><span class="acc-val" id="cp-pmax">—</span></div>
+          <div class="acc-row"><span class="acc-key">Hnorm</span><span class="acc-val" id="cp-hnorm">—</span></div>
+          <div class="acc-row"><span class="acc-key">Dominant</span><span class="acc-val" id="cp-dominant">—</span></div>
+          <div class="acc-row"><span class="acc-key">Weakest</span><span class="acc-val" id="cp-weakest">—</span></div>
+        </div>
+      </div>
+
+      <div class="ai-conditions-card">
+        <div class="acc-header">
+          <span class="acc-header-title">Entropy Analysis</span>
+          <div class="live-dot"></div>
+        </div>
+        <div class="acc-body">
+          <div class="acc-row"><span class="acc-key">Entropy</span><span class="acc-val" id="cp-entropy">—</span></div>
+          <div class="acc-row"><span class="acc-key">Level</span><span class="acc-val" id="cp-entropy-level">—</span></div>
+          <div class="acc-row"><span class="acc-key">Pattern detected</span><span class="acc-val" id="cp-pattern-det">—</span></div>
+          <div class="acc-row"><span class="acc-key">Confidence</span><span class="acc-val" id="cp-conf">—</span></div>
+          <div class="acc-row"><span class="acc-key">Biased dozen</span><span class="acc-val" id="cp-bias-doz">—</span></div>
+        </div>
+      </div>
+
+      <div class="ai-conditions-card">
+        <div class="acc-header">
+          <span class="acc-header-title">Distortion Index</span>
+          <div class="live-dot"></div>
+        </div>
+        <div class="acc-body">
+          <div class="acc-row"><span class="acc-key">Index (0–10)</span><span class="acc-val" id="cp-di-val">—</span></div>
+          <div class="acc-row"><span class="acc-key">Level</span><span class="acc-val" id="cp-di-level">—</span></div>
+          <div class="acc-row"><span class="acc-key">Frame [D1·D2·D3]</span><span class="acc-val" id="cp-di-frame">—</span></div>
+          <div class="acc-row"><span class="acc-key">Dominant</span><span class="acc-val" id="cp-di-dom">—</span></div>
+          <div class="acc-row"><span class="acc-key">Weakest</span><span class="acc-val" id="cp-di-weak">—</span></div>
+        </div>
+      </div>
+
+      <div class="ai-conditions-card">
+        <div class="acc-header">
+          <span class="acc-header-title">Coded Logic Verdict</span>
+          <div class="live-dot"></div>
+        </div>
+        <div class="acc-body">
+          <div class="acc-row"><span class="acc-key">Approach</span><span class="acc-val" id="cp-approach">—</span></div>
+          <div class="acc-row"><span class="acc-key">Bet on</span><span class="acc-val" id="cp-bet" style="color:var(--gold)">—</span></div>
+          <div class="acc-row"><span class="acc-key">Color</span><span class="acc-val" id="cp-color">—</span></div>
+          <div class="acc-row"><span class="acc-key">Color Conf.</span><span class="acc-val" id="cp-color-conf">—</span></div>
+          <div class="acc-row"><span class="acc-key">Trigger</span><span class="acc-val" id="cp-trigger">—</span></div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════ -->
+<script>
+
+// ─── CONSTANTS ───────────────────────────────────────────────
+const RED_NUMS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const STORAGE_KEY = 'roulette-analyst-history';
+
+// ─── STATE ──────────────────────────────────────────────────
+let history = loadHistory();
+
+// ─── PERSISTENCE ────────────────────────────────────────────
+function loadHistory() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch { return []; }
+}
+
+function saveHistory() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch {}
+}
+
+// ─── TOAST ──────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ─── TAB SWITCHING ──────────────────────────────────────────
+/**
+ * @param {string} name - Tab name
+ * @param {HTMLElement} btn - The clicked button element
+ */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── BUILD NUMBER GRID ──────────────────────────────────────
+const grid = document.getElementById('numberGrid');
+for (let i = 0; i <= 36; i++) {
+  const btn = document.createElement('button');
+  btn.className = 'num-btn' + (i === 0 ? ' zero-num' : RED_NUMS.has(i) ? ' red-num' : '');
+  btn.id = `numBtn${i}`;
+  btn.onclick = () => addNumber(i);
+  btn.innerHTML = `${i}<div class="heat-bar" id="heat${i}"></div><div class="num-freq-badge" id="freq${i}"></div>`;
+  grid.appendChild(btn);
+}
+
+// ─── BUILD WHEEL SVG ────────────────────────────────────────
+(function buildWheel() {
+  const g = document.getElementById('wheelSegments');
+  const nums = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+  nums.forEach((num, i) => {
+    const a1 = (360 / nums.length * i - 90) * Math.PI / 180;
+    const a2 = (360 / nums.length * (i + 1) - 90) * Math.PI / 180;
+    const r = 98, ri = 25;
+    const d = `M ${100+ri*Math.cos(a1)} ${100+ri*Math.sin(a1)} L ${100+r*Math.cos(a1)} ${100+r*Math.sin(a1)} A ${r} ${r} 0 0 1 ${100+r*Math.cos(a2)} ${100+r*Math.sin(a2)} L ${100+ri*Math.cos(a2)} ${100+ri*Math.sin(a2)} A ${ri} ${ri} 0 0 0 ${100+ri*Math.cos(a1)} ${100+ri*Math.sin(a1)}`;
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('fill', num === 0 ? '#1a5c2e' : RED_NUMS.has(num) ? '#7a1a1a' : '#1a1a1a');
+    p.setAttribute('stroke', '#0a0a0a');
+    p.setAttribute('stroke-width', '0.5');
+    g.appendChild(p);
+  });
+})();
+
+// ─── QUICK ENTRY KEYBOARD HANDLER ──────────────────────────
+function handleQuickInput(e) {
+  if (e.key === 'Enter') {
+    const val = parseInt(e.target.value, 10);
+    if (!isNaN(val) && val >= 0 && val <= 36) {
+      addNumber(val);
+      e.target.value = '';
+      e.target.select();
+    } else {
+      e.target.style.borderColor = 'var(--red-light)';
+      setTimeout(() => e.target.style.borderColor = '', 600);
+    }
+  }
+}
+
+// Global keyboard shortcut: Ctrl+Z = undo
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'z' && document.activeElement.id !== 'quickInput') {
+    e.preventDefault();
+    undoLast();
+  }
+});
+
+// ─── EXPORT HISTORY ──────────────────────────────────────────
+function exportHistory() {
+  if (!history.length) { showToast('No spins to export'); return; }
+  const text = `Roulette Analyst Export — ${new Date().toLocaleString()}\n` +
+    `Total spins: ${history.length}\n\n` +
+    `History: ${history.join(', ')}\n`;
+  navigator.clipboard.writeText(text)
+    .then(() => showToast(`Copied ${history.length} spins to clipboard`))
+    .catch(() => showToast('Copy failed — try a different browser'));
+}
+
+// ─── HISTORY ACTIONS ─────────────────────────────────────────
+function addNumber(n) {
+  history.push(n);
+  saveHistory();
+  _aiCache = {};  // Invalidate AI cache when data changes
+  renderAll();
+  flashWheel(n);
+  flashBtn(n);
+}
+
+function addRandom() { addNumber(Math.floor(Math.random() * 37)); }
+
+function bulkImport() {
+  const raw = document.getElementById('bulkInput').value.trim();
+  if (!raw) return;
+  const nums = raw.split(/[\s,;]+/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 0 && n <= 36);
+  if (!nums.length) { showToast('No valid numbers found (0–36)'); return; }
+  nums.forEach(n => history.push(n));
+  saveHistory();
+  _aiCache = {};
+  renderAll();
+  document.getElementById('bulkInput').value = '';
+  showToast(`Imported ${nums.length} spins`);
+}
+
+function undoLast() {
+  if (!history.length) return;
+  const removed = history.pop();
+  saveHistory();
+  _aiCache = {};  // Invalidate AI cache when data changes
+  renderAll();
+  showToast(`Removed ${removed}`);
+}
+
+function clearHistory() {
+  if (!history.length) return;
+  if (confirm(`Clear all ${history.length} spins?`)) {
+    history = [];
+    saveHistory();
+    _aiCache = {};  // Invalidate AI cache when data changes
+    renderAll();
+    showToast('History cleared');
+  }
+}
+
+function flashBtn(n) {
+  const btn = document.getElementById(`numBtn${n}`);
+  if (!btn) return;
+  btn.classList.remove('just-added');
+  void btn.offsetWidth; // force reflow to restart animation
+  btn.classList.add('just-added');
+  setTimeout(() => btn.classList.remove('just-added'), 500);
+}
+
+function flashWheel(n) {
+  const wc = document.getElementById('wheelContainer');
+  const center = document.getElementById('wheelCenter');
+  wc.classList.add('wheel-spinning');
+  center.textContent = '…';
+  center.style.color = 'var(--gold)';
+  setTimeout(() => {
+    wc.classList.remove('wheel-spinning');
+    center.textContent = n;
+    center.style.color = n === 0 ? 'var(--green-light)' : RED_NUMS.has(n) ? 'var(--red-light)' : 'var(--text)';
+    center.classList.add('pop');
+    setTimeout(() => {
+      center.classList.remove('pop');
+      center.style.color = 'var(--gold)';
+    }, 600);
+  }, 450);
+}
+
+// ─── RENDER ALL ──────────────────────────────────────────────
+function renderAll() {
+  document.getElementById('headerSpinCount').textContent =
+    history.length === 1 ? '1 spin' : `${history.length} spins`;
+  renderHistory();
+  analyzePattern();
+  analyzePersistence();
+  analyzeDistortionIndex();
+  updatePayloadPreview();
+  renderHeatmap();
+  renderStatsTab();
+  renderStatusStrip();
+  renderConditionsDashboard();
+}
+
+// ─── RENDER HISTORY TAPE ─────────────────────────────────────
+function renderHistory() {
+  const tape = document.getElementById('historyTape');
+  document.getElementById('histCount').textContent = history.length;
+  if (!history.length) {
+    tape.innerHTML = '<span style="font-size:11px;color:var(--text-dim);align-self:center;">No spins recorded yet…</span>';
+    return;
+  }
+  tape.innerHTML = history.map((n, i) => {
+    const cls = n === 0 ? 'chip-zero' : RED_NUMS.has(n) ? 'chip-red' : 'chip-black';
+    const latest = i === history.length - 1 ? ' latest' : '';
+    return `<div class="history-chip${cls ? ' ' + cls : ''}${latest}" title="Spin #${i+1}: ${n} — click to remove" onclick="removeSpinAt(${i})">${n}</div>`;
+  }).join('');
+  tape.scrollTop = tape.scrollHeight;
+}
+
+function removeSpinAt(idx) {
+  const removed = history.splice(idx, 1)[0];
+  saveHistory();
+  _aiCache = {};
+  renderAll();
+  showToast(`Removed spin #${idx+1}: ${removed}`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// SHARED HELPERS
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Returns the dozen (1–3) for a spin result, or null for zero.
+ */
+function getDozen(number) {
+  if (number <= 0)  return null;
+  if (number <= 12) return 1;
+  if (number <= 24) return 2;
+  if (number <= 36) return 3;
+  return null;
+}
+
+/** Filters to non-zero spins only. */
+const getNonZeroSpins = (spins) => spins.filter(s => s !== 0);
+
+/** Returns display label for a dozen. */
+const dozenLabel = (d) => `D${d}`;
+
+/**
+ * Counts D1/D2/D3 occurrences in a spin array.
+ */
+function countDozens(spins) {
+  const counts = { d1: 0, d2: 0, d3: 0 };
+  for (const s of spins) {
+    const d = getDozen(s);
+    if (d === 1) counts.d1++;
+    else if (d === 2) counts.d2++;
+    else if (d === 3) counts.d3++;
+  }
+  return counts;
+}
+
+/**
+ * Computes metrics for a window of non-zero spins.
+ */
+function computeWindowMetrics(window) {
+  const { d1, d2, d3 } = countDozens(window);
+  const counts = [d1, d2, d3];
+  const N = window.length;
+  const sorted = [...counts].sort((a, b) => b - a);
+  const gap = sorted[0] - sorted[2];
+  const pmax = N > 0 ? sorted[0] / N : 0;
+  const probs = counts.map(c => N > 0 ? c / N : 0);
+  const H = -probs.reduce((sum, p) => sum + (p > 0 ? p * Math.log(p) : 0), 0);
+  const Hnorm = Math.log(3) > 0 ? H / Math.log(3) : 0;
+  return { counts, sorted, gap, pmax, Hnorm };
+}
+
+/** Renders heuristics box. */
+function renderHeuristics(stats) {
+  const box = document.getElementById('heuristicBox');
+  if (!stats) { box.style.display = 'none'; return; }
+  document.getElementById('heur-momentum').textContent  = dozenLabel(stats.dominantDozen);
+  document.getElementById('heur-reversion').textContent = dozenLabel(stats.weakestDozen);
+  box.style.display = 'block';
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODULE 1 — Distortion Persistence
+// ══════════════════════════════════════════════════════════════
+
+function gapGrade(gap) {
+  if (gap <= 2)  return 'No distortion';
+  if (gap === 3) return 'Mild';
+  if (gap === 4) return 'Moderate';
+  if (gap === 5) return 'Strong';
+  return 'Extreme';
+}
+
+function gradeClass(grade) {
+  return { 'No distortion':'none', 'Mild':'mild', 'Moderate':'moderate', 'Strong':'strong', 'Extreme':'extreme' }[grade] || 'none';
+}
+
+function distortionPersistence(hist, sensitivity, signalMode) {
+  const nz = getNonZeroSpins(hist);
+  if (signalMode === 'twowindow') {
+    if (nz.length < 26) return null;
+    return twoWindowConfirmation(nz, sensitivity);
+  }
+  if (signalMode === 'gap') {
+    if (nz.length < 13) return null;
+    return gapAnalysis(nz, sensitivity);
+  }
+  if (signalMode === 'regime') {
+    if (nz.length < 26) return null;
+    return regimeShiftAnalysis(nz, sensitivity);
+  }
+  return null;
+}
+
+function twoWindowConfirmation(nz, sensitivity) {
+  const win13 = nz.slice(-13);
+  const win26 = nz.slice(-26);
+  const m13 = computeWindowMetrics(win13);
+  const m26 = computeWindowMetrics(win26);
+  const grade13 = gapGrade(m13.gap);
+  const grade26 = gapGrade(m26.gap);
+  const trigger13_gap  = m13.gap >= 4;
+  const trigger13_conc = m13.pmax >= 0.46 && m13.Hnorm <= 0.90;
+  const trigger13 = trigger13_gap || trigger13_conc;
+  const trigger26 = m26.gap >= 3;
+  let active, explanation;
+  if (sensitivity === 'early') {
+    active = trigger13;
+    if (active) {
+      const reasons = [];
+      if (trigger13_gap)  reasons.push(`gap(13)=${m13.gap} ≥ 4`);
+      if (trigger13_conc) reasons.push(`pMax=${m13.pmax.toFixed(2)} & Hnorm=${m13.Hnorm.toFixed(3)} ≤ 0.90`);
+      explanation = `Early: 13-window ${grade13}. ${reasons.join('; ')}`;
+    } else {
+      explanation = `13-window gap=${m13.gap} (${grade13}), below Moderate threshold.`;
+    }
+  } else {
+    active = trigger13 && trigger26;
+    explanation = active
+      ? `Confirmed: 13-win ${grade13} (gap=${m13.gap}) + 26-win ${grade26} (gap=${m26.gap}).`
+      : trigger13
+        ? `13-window triggers (${grade13}), but 26-window too weak (${grade26}).`
+        : `13-window gap=${m13.gap} (${grade13}), not enough for Reliable.`;
+  }
+  return {
+    mode: 'twowindow', sensitivity, active,
+    grade: grade13, explanation,
+    frame13: win13, frame26: win26,
+    metrics13: m13, metrics26: m26,
+    grade13, grade26,
+    confirmed: trigger13 && trigger26,
+  };
+}
+
+function gapAnalysis(nz, sensitivity) {
+  const win13 = nz.slice(-13);
+  const m = computeWindowMetrics(win13);
+  const grade = gapGrade(m.gap);
+  const thresh = sensitivity === 'early' ? 4 : 5;
+  const active = m.gap >= thresh;
+  const explanation = active
+    ? `Gap=${m.gap} ≥ ${thresh} → ${grade}. Hnorm=${m.Hnorm.toFixed(3)}, pMax=${m.pmax.toFixed(2)}.`
+    : `Gap=${m.gap} < ${thresh} (${grade}). No trigger at ${sensitivity} sensitivity.`;
+  return { mode: 'gap', sensitivity, active, grade, explanation, frame13: win13, metrics13: m };
+}
+
+function regimeShiftAnalysis(nz, sensitivity) {
+  const curr13 = nz.slice(-13);
+  const prev13 = nz.slice(-26, -13);
+  const mCurr = computeWindowMetrics(curr13);
+  const mPrev = computeWindowMetrics(prev13);
+  const currDist = mCurr.counts.map(c => c / 13);
+  const prevDist = mPrev.counts.map(c => c / 13);
+  const shift = currDist.reduce((s, p, i) => s + Math.abs(p - prevDist[i]), 0);
+  const shiftLabel = shift < 0.30 ? 'Small' : shift <= 0.60 ? 'Medium' : 'Large';
+  const currGrade = gapGrade(mCurr.gap);
+  const currDistorted = mCurr.gap >= 3 || mCurr.Hnorm <= 0.90;
+  let active, explanation;
+  if (sensitivity === 'early') {
+    active = shift >= 0.30;
+    explanation = active
+      ? `Shift=${shift.toFixed(2)} (${shiftLabel}) ≥ 0.30. Current: ${currGrade}.`
+      : `Shift=${shift.toFixed(2)} (${shiftLabel}) < 0.30. No regime change detected.`;
+  } else {
+    active = shift > 0.60 && currDistorted;
+    explanation = active
+      ? `Shift=${shift.toFixed(2)} (${shiftLabel}) + current frame distorted (${currGrade}).`
+      : shift > 0.60
+        ? `Shift=${shift.toFixed(2)} (${shiftLabel}), but current frame balanced (${currGrade}).`
+        : `Shift=${shift.toFixed(2)} (${shiftLabel}). Below Large threshold for Reliable.`;
+  }
+  return {
+    mode: 'regime', sensitivity, active,
+    grade: currGrade, explanation,
+    frame13: curr13, framePrev13: prev13,
+    metricsCurr: mCurr, metricsPrev: mPrev,
+    shiftScore: shift, shiftLabel,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODULE 2 — Distortion Index (12-spin frame, 0–10)
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Calculates the Distortion Index for the last 12 non-zero spins.
+ * Expected per dozen = 4 (12 spins / 3 dozens)
+ * deviation = |D1−4| + |D2−4| + |D3−4|
+ * distortionIndex = (deviation / 12) × 10
+ */
+function distortionIndex(hist) {
+  const nonZero = getNonZeroSpins(hist);
+  if (nonZero.length < 12) return null;
+  const frame12 = nonZero.slice(-12);
+  const { d1, d2, d3 } = countDozens(frame12);
+  const expected = 4;
+  const dev1 = Math.abs(d1 - expected);
+  const dev2 = Math.abs(d2 - expected);
+  const dev3 = Math.abs(d3 - expected);
+  const deviation = dev1 + dev2 + dev3;
+  const index = parseFloat(((deviation / 12) * 10).toFixed(2));
+  const counts = [{ dozen:1, count:d1 }, { dozen:2, count:d2 }, { dozen:3, count:d3 }];
+  const sorted = [...counts].sort((a, b) => b.count - a.count);
+  return {
+    frame12: [d1, d2, d3],
+    deviations: [dev1, dev2, dev3],
+    deviation,
+    distortionIndex: index,
+    distortionLevel: index <= 3 ? 'Low' : index <= 6 ? 'Moderate' : 'High',
+    dominantDozen: sorted[0].dozen,
+    weakestDozen: sorted[2].dozen,
+  };
+}
+
+// ──────────────────────────────────────────────────────────────
+// PATTERN TAB — analyze
+// ──────────────────────────────────────────────────────────────
+function calcEntropy(probs) {
+  return -probs.reduce((s, p) => s + (p > 0 ? p * Math.log(p + 1e-9) : 0), 0);
+}
+
+function analyzePattern() {
+  const n = history.length;
+  document.getElementById('stat-total').textContent = n;
+  document.getElementById('stat-last').textContent  = n > 0 ? history[n-1] : '—';
+
+  // Streak
+  if (n >= 2) {
+    const last = history[n-1];
+    let streak = 1;
+    for (let i = n-2; i >= 0; i--) { if (getDozen(history[i]) === getDozen(last)) streak++; else break; }
+    const dz = last === 0 ? 'Zero' : last <= 12 ? 'D1' : last <= 24 ? 'D2' : 'D3';
+    document.getElementById('stat-streak').textContent = streak > 1 ? `${streak}× ${dz}` : '—';
+  } else {
+    document.getElementById('stat-streak').textContent = '—';
+  }
+
+  // Zeros count + most frequent number
+  const zeroCount = history.filter(x => x === 0).length;
+  document.getElementById('stat-zeros').textContent = zeroCount;
+
+  // Most frequent number overall
+  if (n > 0) {
+    const freq = {};
+    for (const x of history) freq[x] = (freq[x] || 0) + 1;
+    const [topNum, topCnt] = Object.entries(freq).sort((a,b) => b[1]-a[1])[0];
+    document.getElementById('stat-freq').textContent = `${topNum} (${topCnt}×)`;
+  } else {
+    document.getElementById('stat-freq').textContent = '—';
+  }
+
+  if (n === 0) { resetPatternDisplays(); return; }
+
+  const last36 = history.slice(-36);
+  let f=0, s=0, t=0, z=0;
+  for (const x of last36) {
+    if (x === 0) z++;
+    else if (x <= 12) f++;
+    else if (x <= 24) s++;
+    else t++;
+  }
+  const tot = last36.length;
+  const nz = f + s + t || 1;
+  const pf = f / nz, ps = s / nz, pt = t / nz;
+  const pfT = f / tot, psT = s / tot, ptT = t / tot, pzT = z / tot;
+
+  document.getElementById('pct-first').textContent  = (pfT * 100).toFixed(1) + '%';
+  document.getElementById('pct-second').textContent = (psT * 100).toFixed(1) + '%';
+  document.getElementById('pct-third').textContent  = (ptT * 100).toFixed(1) + '%';
+  ['first','second','third'].forEach(d => document.getElementById('card-'+d).classList.remove('active'));
+
+  ['first','second','third'].forEach((d, i) => {
+    const pct = [pfT, psT, ptT][i];
+    document.getElementById('bar-'+d).style.width    = (pct * 100) + '%';
+    document.getElementById('barpct-'+d).textContent = (pct * 100).toFixed(0) + '%';
+  });
+  document.getElementById('bar-zero').style.width    = (pzT * 100) + '%';
+  document.getElementById('barpct-zero').textContent = (pzT * 100).toFixed(0) + '%';
+
+  let even=0, odd=0, z2=0;
+  for (const x of last36) { if (x===0) z2++; else if (x%2===0) even++; else odd++; }
+  document.getElementById('par-even').textContent = (even/tot*100).toFixed(1) + '%';
+  document.getElementById('par-odd').textContent  = (odd/tot*100).toFixed(1) + '%';
+  document.getElementById('par-zero').textContent = (z2/tot*100).toFixed(1) + '%';
+
+  let lo=0, hi=0;
+  for (const x of last36) { if (x>=1&&x<=18) lo++; else if (x>=19) hi++; }
+  document.getElementById('range-low').textContent    = (lo/tot*100).toFixed(1) + '%';
+  document.getElementById('range-high').textContent   = (hi/tot*100).toFixed(1) + '%';
+  document.getElementById('range-winner').textContent = lo > hi ? 'LOW' : hi > lo ? 'HIGH' : 'EQUAL';
+
+  const freq = {};
+  for (const x of last36) freq[x] = (freq[x]||0) + 1;
+  const hotEl = document.getElementById('hotNumbers');
+  hotEl.innerHTML = Object.entries(freq).sort((a,b) => b[1]-a[1]).slice(0, 6).map(([num, cnt]) => {
+    const ni = parseInt(num);
+    const cls = ni===0 ? 'chip-zero' : RED_NUMS.has(ni) ? 'chip-red' : 'chip-black';
+    return `<div class="history-chip ${cls}" title="${cnt}×">${num}</div>`;
+  }).join('');
+
+  if (n < 12) {
+    document.getElementById('predMain').textContent    = '—';
+    document.getElementById('predSub').textContent     = `Need ${12-n} more spins`;
+    document.getElementById('confFill').style.width    = '0%';
+    document.getElementById('confLabel').textContent   = 'Confidence: —';
+    document.getElementById('entropyVal').textContent  = '—';
+    document.getElementById('entropyBar').style.width  = '0%';
+    document.getElementById('predictionBox').classList.remove('has-prediction');
+    document.getElementById('infoBox').className    = 'alert-box alert-info';
+    document.getElementById('infoBox').textContent  = `Add ${12-n} more spins for entropy analysis.`;
+    return;
+  }
+
+  const ent = calcEntropy([pf, ps, pt]);
+  const maxEnt = Math.log(3);
+  document.getElementById('entropyVal').textContent = ent.toFixed(3);
+  document.getElementById('entropyBar').style.width = (ent / maxEnt * 100) + '%';
+  document.getElementById('entropyVal').style.color = ent < 1.0 ? 'var(--green-light)' : ent < 1.05 ? 'var(--gold)' : 'var(--red-light)';
+  document.getElementById('entropyDesc').textContent = ent < 0.9
+    ? `Low entropy (${ent.toFixed(3)}) — Strong pattern in last ${tot} spins.`
+    : ent < 1.05
+    ? `Moderate entropy (${ent.toFixed(3)}) — Weak pattern.`
+    : `High entropy (${ent.toFixed(3)}) — Near-random distribution.`;
+
+  const probs = [pf, ps, pt];
+  const dozShort  = ['1st Dozen','2nd Dozen','3rd Dozen'];
+  const dozKeys   = ['first','second','third'];
+  const dozNames  = ['First Dozen (1–12)','Second Dozen (13–24)','Third Dozen (25–36)'];
+  const biasIdx   = probs.indexOf(Math.max(...probs));
+  const biasProb  = probs[biasIdx];
+  const dom = biasProb - 0.333;
+  let conf = 0;
+  if (ent < 0.9) { conf = Math.min(90, 55 + dom*150); document.getElementById('card-'+dozKeys[biasIdx]).classList.add('active'); }
+  else if (ent < 1.05 && dom > 0.05) { conf = Math.min(60, 35 + dom*80); document.getElementById('card-'+dozKeys[biasIdx]).classList.add('active'); }
+
+  document.getElementById('predictionBox').classList.toggle('has-prediction', conf > 0);
+  document.getElementById('predMain').textContent  = conf > 0 ? dozShort[biasIdx] : 'No Pattern';
+  document.getElementById('predSub').textContent   = conf > 0 ? `${(biasProb*100).toFixed(1)}% of last ${tot} spins` : 'Distribution appears random';
+  document.getElementById('confFill').style.width  = conf + '%';
+  document.getElementById('confLabel').textContent = conf > 0 ? `Confidence: ${conf.toFixed(1)}%` : 'Confidence: —';
+
+  const infoEl = document.getElementById('infoBox');
+  if (conf > 50) {
+    infoEl.className = 'alert-box alert-warning';
+    infoEl.textContent = `Pattern detected: ${dozNames[biasIdx]} — ${(biasProb*100).toFixed(0)}% of recent spins. Past results do not guarantee future outcomes.`;
+  } else {
+    infoEl.className = 'alert-box alert-info';
+    infoEl.textContent = `No strong pattern. Entropy ${ent.toFixed(3)} — near-random distribution.`;
+  }
+}
+
+function resetPatternDisplays() {
+  ['first','second','third'].forEach(d => {
+    document.getElementById('pct-'+d).textContent      = '—';
+    document.getElementById('bar-'+d).style.width      = '0%';
+    document.getElementById('barpct-'+d).textContent   = '0%';
+    document.getElementById('card-'+d).classList.remove('active');
+  });
+  document.getElementById('bar-zero').style.width    = '0%';
+  document.getElementById('barpct-zero').textContent = '0%';
+  ['par-even','par-odd','par-zero','range-low','range-high'].forEach(id => document.getElementById(id).textContent = '—');
+  document.getElementById('range-winner').textContent = '—';
+  document.getElementById('predMain').textContent    = '—';
+  document.getElementById('predSub').textContent     = 'Add at least 12 spins';
+  document.getElementById('confFill').style.width    = '0%';
+  document.getElementById('confLabel').textContent   = 'Confidence: —';
+  document.getElementById('entropyVal').textContent  = '—';
+  document.getElementById('entropyBar').style.width  = '0%';
+  document.getElementById('hotNumbers').innerHTML    = '<span style="font-size:10px;color:var(--text-dim)">No data</span>';
+  document.getElementById('predictionBox').classList.remove('has-prediction');
+  document.getElementById('infoBox').className   = 'alert-box alert-info';
+  document.getElementById('infoBox').textContent = 'Add spins to begin analysis. Needs at least 12 results.';
+  document.getElementById('stat-last').textContent   = '—';
+  document.getElementById('stat-streak').textContent = '—';
+  document.getElementById('stat-zeros').textContent  = '0';
+  document.getElementById('stat-freq').textContent   = '—';
+}
+
+// ──────────────────────────────────────────────────────────────
+// PERSISTENCE TAB — render
+// ──────────────────────────────────────────────────────────────
+const DOZEN_CLASSES = ['', 'frame-d1', 'frame-d2', 'frame-d3'];
+
+function analyzePersistence() {
+  const sensitivity = document.getElementById('sensitivity').value;
+  const signalMode  = document.getElementById('signalMode').value;
+  const result      = distortionPersistence(history, sensitivity, signalMode);
+  const nonZero     = getNonZeroSpins(history);
+  const minSpins    = (signalMode === 'twowindow' || signalMode === 'regime') ? 26 : 13;
+  const frame       = nonZero.slice(-13);
+  const fv          = document.getElementById('frame13Visual');
+
+  const txt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const htm = (id, v) => { const e = document.getElementById(id); if (e) e.innerHTML   = v; };
+
+  /* ── Not enough data ── */
+  if (nonZero.length < minSpins) {
+    const needed = minSpins - nonZero.length;
+    fv.innerHTML = `<span style="font-size:10px;color:var(--text-dim)">Need ${needed} more non-zero spins (${nonZero.length}/${minSpins})…</span>`;
+    renderHeuristics(null);
+
+    ['dcc1-count','dcc2-count','dcc3-count'].forEach(id => txt(id, '—'));
+    ['dcc1-bar','dcc2-bar','dcc3-bar','pb1','pb2','pb3'].forEach(id => document.getElementById(id).style.width = '0%');
+    ['pbp1','pbp2','pbp3'].forEach(id => txt(id, '—'));
+
+    txt('signalValue', '—');
+    txt('signalFrame', 'Awaiting data…');
+    document.getElementById('signalBox').className = 'signal-box signal-inactive';
+
+    ['rc-d1','rc-d2','rc-d3','rc-sorted','rc-gap','rc-pmax','rc-hnorm'].forEach(id => txt(id, '—'));
+
+    const pill = document.getElementById('rc-status-pill');
+    if (pill) { pill.textContent = 'Inactive'; pill.className = 'status-pill pill-inactive'; }
+    const badge = document.getElementById('rc-strength');
+    if (badge) { badge.textContent = '—'; badge.className = 'strength-badge strength-none'; }
+
+    txt('rc-explanation', `Awaiting ${minSpins}+ non-zero spins…`);
+    const mc = document.getElementById('rcModeCard');
+    if (mc) mc.style.display = 'none';
+    return;
+  }
+
+  /* ── Frame chips ── */
+  fv.innerHTML = frame.map((n, i) => {
+    const d   = getDozen(n);
+    const cls = d ? DOZEN_CLASSES[d] : 'frame-z';
+    return `<div class="frame-slot"><div class="frame-chip ${cls}">${n}</div><div class="frame-idx">${i+1}</div></div>`;
+  }).join('');
+
+  /* ── Main metrics ── */
+  const dm = result.metrics13 || result.metricsCurr;
+  const [d1, d2, d3] = dm.counts;
+
+  document.getElementById('dcc1-count').textContent = d1;
+  document.getElementById('dcc1-bar').style.width   = (d1/13*100) + '%';
+  document.getElementById('dcc2-count').textContent = d2;
+  document.getElementById('dcc2-bar').style.width   = (d2/13*100) + '%';
+  document.getElementById('dcc3-count').textContent = d3;
+  document.getElementById('dcc3-bar').style.width   = (d3/13*100) + '%';
+
+  const dominantDozen = dm.counts.indexOf(Math.max(...dm.counts)) + 1;
+  const weakestDozen  = dm.counts.indexOf(Math.min(...dm.counts)) + 1;
+  renderHeuristics({ dominantDozen, weakestDozen });
+
+  ['dcc1','dcc2','dcc3'].forEach(id => document.getElementById(id).className = 'dozen-count-card');
+  const dClassMap = { 1:'dominant dominant-d1', 2:'dominant dominant-d2', 3:'dominant dominant-d3' };
+  document.getElementById(['dcc1','dcc2','dcc3'][dominantDozen-1]).className = 'dozen-count-card ' + dClassMap[dominantDozen];
+
+  document.getElementById('pb1').style.width  = (d1/13*100) + '%'; txt('pbp1', d1);
+  document.getElementById('pb2').style.width  = (d2/13*100) + '%'; txt('pbp2', d2);
+  document.getElementById('pb3').style.width  = (d3/13*100) + '%'; txt('pbp3', d3);
+
+  /* ── Signal box ── */
+  const signalLabel = result.active ? 'ACTIVE — ' + result.grade : 'INACTIVE';
+  const sb = document.getElementById('signalBox');
+  sb.className = 'signal-box ' + (result.active ? 'signal-active' : 'signal-inactive');
+  document.getElementById('signalValue').textContent  = signalLabel;
+  document.getElementById('signalValue').style.color  = result.active ? 'var(--green-light)' : 'var(--text-dim)';
+  document.getElementById('signalFrame').textContent  = `Mode: ${signalMode} | Sensitivity: ${sensitivity}`;
+
+  /* ── Frame results card ── */
+  htm('rc-d1', `<span class="val-d1">${d1}</span>`);
+  htm('rc-d2', `<span class="val-d2">${d2}</span>`);
+  htm('rc-d3', `<span class="val-d3">${d3}</span>`);
+  txt('rc-sorted', dm.sorted.join(' › '));
+  txt('rc-gap',    dm.gap);
+  txt('rc-pmax',   (dm.pmax * 100).toFixed(1) + '%');
+  txt('rc-hnorm',  dm.Hnorm.toFixed(3));
+
+  /* ── Signal results card ── */
+  const pill = document.getElementById('rc-status-pill');
+  if (pill) { pill.textContent = result.active ? 'ACTIVE' : 'INACTIVE'; pill.className = 'status-pill ' + (result.active ? 'pill-active' : 'pill-inactive'); }
+  const badge = document.getElementById('rc-strength');
+  if (badge) { badge.textContent = result.grade; badge.className = 'strength-badge strength-' + gradeClass(result.grade); }
+  txt('rc-explanation', result.explanation);
+
+  /* ── Mode-specific card ── */
+  const mc = document.getElementById('rcModeCard');
+  const mh = document.getElementById('rcModeHeader');
+  const mb = document.getElementById('rcModeBody');
+  if (mc && mh && mb) {
+    mc.style.display = 'block';
+    if (signalMode === 'twowindow') {
+      mh.textContent = 'Two-Window Confirmation';
+      const m13 = result.metrics13, m26 = result.metrics26;
+      mb.innerHTML = `
+        <div class="rc-subsection">Window 13</div>
+        <div class="rc-row"><span class="rc-key">Counts</span><span class="rc-val"><span class="val-d1">${m13.counts[0]}</span> · <span class="val-d2">${m13.counts[1]}</span> · <span class="val-d3">${m13.counts[2]}</span></span></div>
+        <div class="rc-row"><span class="rc-key">Gap / Grade</span><span class="rc-val">${m13.gap} — ${result.grade13}</span></div>
+        <div class="rc-row"><span class="rc-key">pMax</span><span class="rc-val">${(m13.pmax*100).toFixed(1)}%</span></div>
+        <div class="rc-row"><span class="rc-key">Hnorm</span><span class="rc-val">${m13.Hnorm.toFixed(3)}</span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-subsection">Window 26</div>
+        <div class="rc-row"><span class="rc-key">Counts</span><span class="rc-val"><span class="val-d1">${m26.counts[0]}</span> · <span class="val-d2">${m26.counts[1]}</span> · <span class="val-d3">${m26.counts[2]}</span></span></div>
+        <div class="rc-row"><span class="rc-key">Gap / Grade</span><span class="rc-val">${m26.gap} — ${result.grade26}</span></div>
+        <div class="rc-row"><span class="rc-key">pMax</span><span class="rc-val">${(m26.pmax*100).toFixed(1)}%</span></div>
+        <div class="rc-row"><span class="rc-key">Hnorm</span><span class="rc-val">${m26.Hnorm.toFixed(3)}</span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-row"><span class="rc-key">Confirmed</span><span class="rc-val" style="color:${result.confirmed?'var(--green-light)':'var(--text-dim)'}">${result.confirmed?'YES':'NO'}</span></div>`;
+    } else if (signalMode === 'gap') {
+      mh.textContent = 'Gap Analysis';
+      const m = result.metrics13;
+      const thresh = sensitivity === 'early' ? 4 : 5;
+      mb.innerHTML = `
+        <div class="rc-row"><span class="rc-key">Gap</span><span class="rc-val">${m.gap}</span></div>
+        <div class="rc-row"><span class="rc-key">Grade</span><span class="rc-val"><span class="strength-badge strength-${gradeClass(result.grade)}">${result.grade}</span></span></div>
+        <div class="rc-row"><span class="rc-key">Threshold</span><span class="rc-val">≥ ${thresh} (${sensitivity})</span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-row"><span class="rc-key">pMax</span><span class="rc-val">${(m.pmax*100).toFixed(1)}%</span></div>
+        <div class="rc-row"><span class="rc-key">Hnorm</span><span class="rc-val">${m.Hnorm.toFixed(3)}</span></div>`;
+    } else if (signalMode === 'regime') {
+      mh.textContent = 'Regime Shift';
+      const prev = result.metricsPrev.counts, curr = result.metricsCurr.counts;
+      const sClass = result.shiftLabel==='Small'?'mild':result.shiftLabel==='Medium'?'moderate':'extreme';
+      mb.innerHTML = `
+        <div class="rc-subsection">Previous 13</div>
+        <div class="rc-row"><span class="rc-key">Counts</span><span class="rc-val"><span class="val-d1">${prev[0]}</span> · <span class="val-d2">${prev[1]}</span> · <span class="val-d3">${prev[2]}</span></span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-subsection">Current 13</div>
+        <div class="rc-row"><span class="rc-key">Counts</span><span class="rc-val"><span class="val-d1">${curr[0]}</span> · <span class="val-d2">${curr[1]}</span> · <span class="val-d3">${curr[2]}</span></span></div>
+        <div class="rc-separator"></div>
+        <div class="rc-row"><span class="rc-key">Shift Score</span><span class="rc-val">${result.shiftScore.toFixed(2)}</span></div>
+        <div class="rc-row"><span class="rc-key">Label</span><span class="rc-val"><span class="strength-badge strength-${sClass}">${result.shiftLabel}</span></span></div>`;
+    }
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// DISTORTION INDEX TAB — render
+// ──────────────────────────────────────────────────────────────
+function analyzeDistortionIndex() {
+  const result  = distortionIndex(history);
+  const nonZero = getNonZeroSpins(history);
+  const fv12    = document.getElementById('frame12Visual');
+  const frame12 = nonZero.slice(-12);
+
+  if (nonZero.length < 12) {
+    fv12.innerHTML = `<span style="font-size:10px;color:var(--text-dim)">Need ${12-nonZero.length} more non-zero spins (${nonZero.length}/12)…</span>`;
+    document.getElementById('diValueNum').textContent    = '—';
+    document.getElementById('diValueNum').style.color    = 'var(--text-dim)';
+    document.getElementById('diLevel').className         = 'di-level di-level-null';
+    document.getElementById('diLevel').textContent       = 'Awaiting data';
+    document.getElementById('gaugeNeedle').setAttribute('d','M 20 100 A 80 80 0 0 1 20 100');
+    ['di-frame','di-deviation','di-dominant','di-weakest'].forEach(id => document.getElementById(id).textContent = '—');
+    ['dev1-count','dev2-count','dev3-count'].forEach(id => document.getElementById(id).textContent = '—');
+    ['dev1-diff','dev2-diff','dev3-diff'].forEach(id => { document.getElementById(id).textContent = '—'; document.getElementById(id).className = 'dev-diff'; });
+    ['db1','db2','db3','devbar1','devbar2','devbar3'].forEach(id => document.getElementById(id).style.width = '0%');
+    ['dbp1','dbp2','dbp3','devbarp1','devbarp2','devbarp3'].forEach(id => document.getElementById(id).textContent = '—');
+    ['dev1-label','dev2-label','dev3-label'].forEach(id => document.getElementById(id).textContent = '');
+    document.getElementById('distortionJSON').innerHTML = '<span style="color:var(--border)">// Awaiting 12+ non-zero spins…</span>';
+    return;
+  }
+
+  fv12.innerHTML = frame12.map((n, i) => {
+    const d   = getDozen(n);
+    const cls = d ? DOZEN_CLASSES[d] : 'frame-z';
+    return `<div class="frame-slot"><div class="frame-chip ${cls}">${n}</div><div class="frame-idx">${i+1}</div></div>`;
+  }).join('');
+
+  const [d1, d2, d3]       = result.frame12;
+  const [dev1, dev2, dev3] = result.deviations;
+  const idx = result.distortionIndex;
+
+  document.getElementById('dev1-count').textContent = d1;
+  document.getElementById('dev2-count').textContent = d2;
+  document.getElementById('dev3-count').textContent = d3;
+
+  const fmtDiff  = (raw) => `${raw > 0 ? '+' : ''}${raw} vs expected 4`;
+  const diffClass = (raw) => raw > 0 ? 'dev-diff pos' : raw < 0 ? 'dev-diff neg' : 'dev-diff neu';
+  [d1, d2, d3].forEach((count, i) => {
+    const raw = count - 4;
+    const el = document.getElementById(`dev${i+1}-diff`);
+    el.textContent = fmtDiff(raw);
+    el.className   = diffClass(raw);
+  });
+
+  // Dominant/weakest labels
+  ['devc1','devc2','devc3'].forEach(id => document.getElementById(id).className = 'dev-card');
+  ['dev1-label','dev2-label','dev3-label'].forEach(id => document.getElementById(id).textContent = '');
+  document.getElementById('devc'+result.dominantDozen).className         = 'dev-card dev-dominant';
+  document.getElementById('devc'+result.weakestDozen).className          = 'dev-card dev-weakest';
+  document.getElementById('dev'+result.dominantDozen+'-label').textContent = 'DOMINANT';
+  document.getElementById('dev'+result.weakestDozen+'-label').textContent  = 'WEAKEST';
+
+  // Share bars
+  document.getElementById('db1').style.width = (d1/12*100) + '%'; document.getElementById('dbp1').textContent = d1+'/12';
+  document.getElementById('db2').style.width = (d2/12*100) + '%'; document.getElementById('dbp2').textContent = d2+'/12';
+  document.getElementById('db3').style.width = (d3/12*100) + '%'; document.getElementById('dbp3').textContent = d3+'/12';
+
+  // Deviation bars (max possible single deviation = 8)
+  document.getElementById('devbar1').style.width = (dev1/8*100) + '%'; document.getElementById('devbarp1').textContent = dev1;
+  document.getElementById('devbar2').style.width = (dev2/8*100) + '%'; document.getElementById('devbarp2').textContent = dev2;
+  document.getElementById('devbar3').style.width = (dev3/8*100) + '%'; document.getElementById('devbarp3').textContent = dev3;
+
+  // Gauge needle — semicircle from left (0) to right (10)
+  // Track: M 20 100 A 80 80 0 0 1 180 100 (left→right sweeping clockwise through top)
+  // pct=0 → empty arc; pct=1 → full arc reaching (180,100)
+  const pct = Math.min(idx / 10, 1);
+  if (pct > 0) {
+    const cx = 100, cy = 100, r = 80;
+    const startAngle = Math.PI;         // (20,100) — left side
+    const endAngle   = Math.PI * (1 - pct); // decreases toward 0 (right side)
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const largeArc = pct > 0.5 ? 1 : 0;
+    document.getElementById('gaugeNeedle').setAttribute('d', `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`);
+  } else {
+    document.getElementById('gaugeNeedle').setAttribute('d', 'M 20 100 A 80 80 0 0 1 20 100');
+  }
+
+  const idxColor = idx <= 3 ? 'var(--green-light)' : idx <= 6 ? 'var(--gold)' : 'var(--red-light)';
+  document.getElementById('diValueNum').textContent = idx.toFixed(2);
+  document.getElementById('diValueNum').style.color = idxColor;
+
+  const diLvl = document.getElementById('diLevel');
+  if (idx <= 3) { diLvl.className = 'di-level di-level-low'; diLvl.textContent = `LOW DISTORTION — ${idx.toFixed(2)} / 10`; }
+  else if (idx <= 6) { diLvl.className = 'di-level di-level-mid'; diLvl.textContent = `MODERATE DISTORTION — ${idx.toFixed(2)} / 10`; }
+  else { diLvl.className = 'di-level di-level-high'; diLvl.textContent = `HIGH DISTORTION — ${idx.toFixed(2)} / 10`; }
+
+  const DOZEN_COLORS = ['', 'var(--d1)', 'var(--d2)', 'var(--d3)'];
+  document.getElementById('di-frame').textContent = `[${d1}, ${d2}, ${d3}]`;
+  document.getElementById('di-deviation').textContent = result.deviation + ' / 12 max';
+  document.getElementById('di-dominant').innerHTML = `<span style="color:${DOZEN_COLORS[result.dominantDozen]}">D${result.dominantDozen}</span>`;
+  document.getElementById('di-weakest').innerHTML  = `<span style="color:var(--text-dim)">D${result.weakestDozen}</span>`;
+
+  document.getElementById('distortionJSON').innerHTML = `
+<span class="key">distortion</span> = {<br>
+&nbsp;&nbsp;<span class="key">frame12</span>: [<span class="val-d1">${d1}</span>, <span class="val-d2">${d2}</span>, <span class="val-d3">${d3}</span>],<br>
+&nbsp;&nbsp;<span class="key">deviation</span>: <span class="val-n">${result.deviation}</span>,<br>
+&nbsp;&nbsp;<span class="key">distortionIndex</span>: <span style="color:${idxColor}">${idx.toFixed(2)}</span>,<br>
+&nbsp;&nbsp;<span class="key">dominantDozen</span>: <span style="color:${DOZEN_COLORS[result.dominantDozen]}">D${result.dominantDozen}</span>,<br>
+&nbsp;&nbsp;<span class="key">weakestDozen</span>: <span class="val-n">D${result.weakestDozen}</span><br>
+}`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// AI INSIGHTS TAB — logic
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Pre-computes the full JS decision tree verdict BEFORE the AI is called.
+ * The AI must copy these values — not override them.
+ */
+function computeCodedVerdict() {
+  const nonZero = getNonZeroSpins(history);
+  const n = history.length;
+
+  const verdict = {
+    approach: 'NO_SIGNAL',
+    recommendDozen: null,
+    recommendDozenLabel: 'No bet recommended',
+    recommendColor: 'NONE',
+    colorConfidence: 0,
+    colorTrigger: 'No color suggestion',
+    confidence: 0,
+    trigger: 'Insufficient data or no distortion detected',
+    details: {}
+  };
+
+  if (n < 12) return verdict;
+
+  // Distortion Persistence
+  const sensitivity = document.getElementById('sensitivity')?.value || 'reliable';
+  const signalMode = document.getElementById('signalMode')?.value || 'twowindow';
+  const persResult = distortionPersistence(history, sensitivity, signalMode);
+
+  // Distortion Index
+  const diResult = distortionIndex(history);
+  const diVal = diResult ? diResult.distortionIndex : 0;
+
+  // Entropy Analysis
+  const last36 = history.slice(-36);
+  const nzLast36 = last36.filter(x => x !== 0);
+  let patternConfidence = 0;
+  let entropyNorm = 1;
+  let biasedDozenIdx = -1;
+
+  if (nzLast36.length > 0) {
+    let f = 0, s = 0, t = 0;
+    for (const x of nzLast36) {
+      if (x <= 12) f++; else if (x <= 24) s++; else t++;
+    }
+    const nzCount = f + s + t || 1;
+    const pf = f / nzCount, ps = s / nzCount, pt = t / nzCount;
+    const probs = [pf, ps, pt];
+    const ent = calcEntropy(probs);
+    const maxEnt = Math.log(3);
+    entropyNorm = ent / maxEnt;
+    biasedDozenIdx = probs.indexOf(Math.max(...probs));
+    const dom = probs[biasedDozenIdx] - 0.333;
+
+    if (ent < 0.9) {
+      patternConfidence = Math.min(90, 55 + dom * 150);
+    } else if (ent < 1.05 && dom > 0.03) {
+      patternConfidence = Math.min(60, 35 + dom * 80);
+    } else if (entropyNorm < 0.98 && dom > 0.02) {
+      // Mild lean: entropy is slightly below perfect randomness
+      patternConfidence = Math.min(35, 15 + dom * 60);
+    }
+  }
+
+  // diBonus
+  const diBonus = diVal > 6 ? 15 : diVal > 3 ? 8 : 0;
+
+  // Decision Tree (priority order)
+  const dozenLabels = ['Dozen 1 (1-12)', 'Dozen 2 (13-24)', 'Dozen 3 (25-36)'];
+
+  if (persResult && persResult.active) {
+    // MOMENTUM: signal active -> follow dominant dozen
+    const dm = persResult.metrics13 || persResult.metricsCurr;
+    const domIdx = dm.counts.indexOf(Math.max(...dm.counts));
+    const rawConf = patternConfidence + diBonus;
+    const confidence = Math.max(rawConf, 40);
+    verdict.approach = 'MOMENTUM';
+    verdict.recommendDozen = domIdx + 1;
+    verdict.recommendDozenLabel = dozenLabels[domIdx];
+    verdict.confidence = Math.min(Math.round(confidence), 95);
+    verdict.trigger = `Persistence signal ACTIVE (${persResult.mode}/${sensitivity}), gap=${dm.gap}, grade=${persResult.grade}. Follow dominant D${domIdx + 1}.`;
+  } else if (diResult && diVal > 6) {
+    // MEAN_REVERSION: signal inactive but DI > 6 -> follow weakest dozen
+    const weakIdx = diResult.weakestDozen - 1;
+    const rawConf = patternConfidence + diBonus;
+    verdict.approach = 'MEAN_REVERSION';
+    verdict.recommendDozen = weakIdx + 1;
+    verdict.recommendDozenLabel = dozenLabels[weakIdx];
+    verdict.confidence = Math.min(Math.round(Math.max(rawConf, 30)), 80);
+    verdict.trigger = `Signal inactive, DI=${diVal.toFixed(2)} > 6 (HIGH). Mean-reversion toward weakest D${weakIdx + 1}.`;
+  } else if (patternConfidence > 0 && biasedDozenIdx >= 0) {
+    // ENTROPY_BIAS: pattern detected
+    const rawConf = patternConfidence + diBonus;
+    verdict.approach = 'ENTROPY_BIAS';
+    verdict.recommendDozen = biasedDozenIdx + 1;
+    verdict.recommendDozenLabel = dozenLabels[biasedDozenIdx];
+    verdict.confidence = Math.min(Math.round(rawConf), 70);
+    verdict.trigger = `Entropy pattern detected (Hnorm=${entropyNorm.toFixed(3)}), patternConf=${patternConfidence.toFixed(1)}%. Biased toward D${biasedDozenIdx + 1}.`;
+  } else if (diResult && diVal > 3) {
+    // DI_MODERATE: moderate distortion (3-6) — lean toward weakest dozen
+    const weakIdx = diResult.weakestDozen - 1;
+    verdict.approach = 'DI_MODERATE';
+    verdict.recommendDozen = weakIdx + 1;
+    verdict.recommendDozenLabel = dozenLabels[weakIdx];
+    verdict.confidence = Math.min(Math.round(15 + diVal * 3), 40);
+    verdict.trigger = `DI=${diVal.toFixed(2)} (moderate distortion). Mild lean toward underrepresented D${weakIdx + 1}.`;
+  } else if (biasedDozenIdx >= 0 && nzLast36.length >= 10) {
+    // DISTRIBUTION_LEAN: no formal entropy/DI trigger but dominant dozen > 38% share
+    const probs36 = [];
+    let f2 = 0, s2 = 0, t2 = 0;
+    for (const x of nzLast36) { if (x <= 12) f2++; else if (x <= 24) s2++; else t2++; }
+    const cnt36 = f2 + s2 + t2 || 1;
+    probs36.push(f2/cnt36, s2/cnt36, t2/cnt36);
+    const domIdx36 = probs36.indexOf(Math.max(...probs36));
+    const domShare = probs36[domIdx36];
+    const weakIdx36 = probs36.indexOf(Math.min(...probs36));
+    const weakShare = probs36[weakIdx36];
+    const imbalance = domShare - weakShare;
+    if (domShare >= 0.38) {
+      verdict.approach = 'DISTRIBUTION_LEAN';
+      verdict.recommendDozen = domIdx36 + 1;
+      verdict.recommendDozenLabel = dozenLabels[domIdx36];
+      verdict.confidence = Math.min(Math.round(10 + imbalance * 100), 35);
+      verdict.trigger = `Dozen distribution lean: D${domIdx36+1} at ${(domShare*100).toFixed(1)}% vs expected 33.3% (spread: ${(imbalance*100).toFixed(1)}%). Mild suggestion.`;
+    } else {
+      verdict.approach = 'NO_SIGNAL';
+      verdict.recommendDozen = null;
+      verdict.recommendDozenLabel = 'No bet recommended';
+      verdict.confidence = 0;
+      verdict.trigger = `Distribution balanced. D-max ${(domShare*100).toFixed(1)}% (need ≥38%). No actionable lean.`;
+    }
+  } else {
+    verdict.approach = 'NO_SIGNAL';
+    verdict.recommendDozen = null;
+    verdict.recommendDozenLabel = 'No bet recommended';
+    verdict.confidence = 0;
+    verdict.trigger = 'No distortion signal, DI not high, no entropy pattern. Distribution appears random.';
+  }
+
+  // ── Color Analysis ──
+  const last36nz = history.slice(-36).filter(x => x !== 0);
+  let colorRedCount = 0, colorBlackCount = 0;
+  for (const x of last36nz) {
+    if (RED_NUMS.has(x)) colorRedCount++; else colorBlackCount++;
+  }
+  const totalRB = colorRedCount + colorBlackCount;
+  const pRed = totalRB > 0 ? colorRedCount / totalRB : 0.5;
+  const pBlack = totalRB > 0 ? colorBlackCount / totalRB : 0.5;
+  const colorDelta = Math.abs(pRed - pBlack);
+  const dominantColor = pRed > pBlack ? 'RED' : pRed < pBlack ? 'BLACK' : 'NONE';
+  const weakColor = dominantColor === 'RED' ? 'BLACK' : dominantColor === 'BLACK' ? 'RED' : 'NONE';
+
+  // Current color streak
+  let colorStreak = 0, colorStreakType = '';
+  for (let i = history.length - 1; i >= 0; i--) {
+    const x = history[i];
+    if (x === 0) break;
+    const isRed = RED_NUMS.has(x);
+    if (colorStreak === 0) {
+      colorStreakType = isRed ? 'RED' : 'BLACK';
+      colorStreak = 1;
+    } else {
+      if ((colorStreakType === 'RED') === isRed) colorStreak++;
+      else break;
+    }
+  }
+
+  // Color recommendation follows same approach logic as dozen
+  if (totalRB >= 10) {
+    const streakBonus = colorStreak >= 4 ? 10 : colorStreak >= 3 ? 5 : 0;
+    if (verdict.approach === 'MOMENTUM') {
+      // Momentum: follow the dominant color
+      verdict.recommendColor = dominantColor;
+      verdict.colorConfidence = Math.min(Math.round(colorDelta * 120 + streakBonus + 15), 85);
+      verdict.colorTrigger = `Momentum active → follow dominant ${dominantColor}. Distribution: Red ${colorRedCount}/${totalRB} (${(pRed*100).toFixed(0)}%) vs Black ${colorBlackCount}/${totalRB} (${(pBlack*100).toFixed(0)}%). Streak: ${colorStreak} ${colorStreakType}.`;
+    } else if (verdict.approach === 'MEAN_REVERSION') {
+      // Mean reversion: bet on the underrepresented color
+      verdict.recommendColor = weakColor;
+      verdict.colorConfidence = Math.min(Math.round(colorDelta * 100 + streakBonus + 10), 70);
+      verdict.colorTrigger = `Mean reversion → ${weakColor} underrepresented. Distribution: Red ${colorRedCount}/${totalRB} (${(pRed*100).toFixed(0)}%) vs Black ${colorBlackCount}/${totalRB} (${(pBlack*100).toFixed(0)}%). Streak: ${colorStreak} ${colorStreakType}.`;
+    } else if (verdict.approach === 'ENTROPY_BIAS' && colorDelta > 0.08) {
+      // Entropy bias with noticeable color skew: follow dominant
+      verdict.recommendColor = dominantColor;
+      verdict.colorConfidence = Math.min(Math.round(colorDelta * 90 + streakBonus), 60);
+      verdict.colorTrigger = `Entropy bias + color skew → ${dominantColor}. Distribution: Red ${colorRedCount}/${totalRB} (${(pRed*100).toFixed(0)}%) vs Black ${colorBlackCount}/${totalRB} (${(pBlack*100).toFixed(0)}%).`;
+    } else if ((verdict.approach === 'DI_MODERATE' || verdict.approach === 'DISTRIBUTION_LEAN') && colorDelta > 0.10) {
+      // Moderate/lean approaches with noticeable color skew
+      verdict.recommendColor = dominantColor;
+      verdict.colorConfidence = Math.min(Math.round(colorDelta * 70 + streakBonus), 45);
+      verdict.colorTrigger = `${verdict.approach} + color skew → ${dominantColor}. Red ${colorRedCount}/${totalRB} (${(pRed*100).toFixed(0)}%) vs Black ${colorBlackCount}/${totalRB} (${(pBlack*100).toFixed(0)}%).`;
+    } else if (colorDelta > 0.15) {
+      // Standalone color bias even with NO_SIGNAL on dozens
+      verdict.recommendColor = dominantColor;
+      verdict.colorConfidence = Math.min(Math.round(colorDelta * 80), 50);
+      verdict.colorTrigger = `Standalone color bias detected. ${dominantColor}: ${Math.round(Math.max(pRed, pBlack) * 100)}% of last ${totalRB} spins (delta: ${(colorDelta*100).toFixed(1)}%).`;
+    } else {
+      verdict.recommendColor = 'NONE';
+      verdict.colorConfidence = 0;
+      verdict.colorTrigger = `No significant color bias. Red ${(pRed*100).toFixed(0)}% vs Black ${(pBlack*100).toFixed(0)}% (delta: ${(colorDelta*100).toFixed(1)}%).`;
+    }
+  } else {
+    verdict.recommendColor = 'NONE';
+    verdict.colorConfidence = 0;
+    verdict.colorTrigger = 'Need 10+ non-zero spins for color analysis.';
+  }
+
+  verdict.details = {
+    patternConfidence: parseFloat(patternConfidence.toFixed(1)),
+    diBonus,
+    diVal: parseFloat(diVal.toFixed(2)),
+    entropyNorm: parseFloat(entropyNorm.toFixed(4)),
+    signalActive: persResult ? persResult.active : false,
+    signalMode,
+    sensitivity,
+    colorStats: {
+      redCount: colorRedCount,
+      blackCount: colorBlackCount,
+      total: totalRB,
+      pRed: parseFloat(pRed.toFixed(4)),
+      pBlack: parseFloat(pBlack.toFixed(4)),
+      colorDelta: parseFloat(colorDelta.toFixed(4)),
+      dominantColor,
+      weakColor,
+      currentStreak: colorStreak,
+      currentStreakColor: colorStreakType
+    }
+  };
+
+  return verdict;
+}
+
+function generateMetricsPayload() {
+  const n = history.length;
+  if (n === 0) return { error: "No spins recorded." };
+
+  const nonZero = getNonZeroSpins(history);
+  
+  // Streaks
+  let longestRed = 0, currRed = 0;
+  let longestBlack = 0, currBlack = 0;
+  let longestHigh = 0, currHigh = 0;
+  let longestLow = 0, currLow = 0;
+  
+  for (const x of history) {
+    if (x === 0) {
+      currRed = 0; currBlack = 0; currHigh = 0; currLow = 0;
+    } else {
+      if (RED_NUMS.has(x)) { currRed++; currBlack = 0; } else { currBlack++; currRed = 0; }
+      if (x >= 19) { currHigh++; currLow = 0; } else { currLow++; currHigh = 0; }
+      
+      if (currRed > longestRed) longestRed = currRed;
+      if (currBlack > longestBlack) longestBlack = currBlack;
+      if (currHigh > longestHigh) longestHigh = currHigh;
+      if (currLow > longestLow) longestLow = currLow;
+    }
+  }
+
+  // Dozen distribution (last 36)
+  const last36 = history.slice(-36);
+  const dozens36 = countDozens(last36);
+  
+  // Overall distribution
+  const dozensAll = countDozens(nonZero);
+
+  // ── Entropy analysis (from pattern tab logic) ──
+  let entropyData = null;
+  if (n >= 12) {
+    let f=0, s=0, t=0;
+    const nzLast36 = last36.filter(x => x !== 0);
+    for (const x of nzLast36) {
+      if (x <= 12) f++; else if (x <= 24) s++; else t++;
+    }
+    const nzCount = f + s + t || 1;
+    const pf = f / nzCount, ps = s / nzCount, pt = t / nzCount;
+    const ent = calcEntropy([pf, ps, pt]);
+    const maxEnt = Math.log(3);
+    const probs = [pf, ps, pt];
+    const biasIdx = probs.indexOf(Math.max(...probs));
+    const biasProb = probs[biasIdx];
+    const dom = biasProb - 0.333;
+    let conf = 0;
+    if (ent < 0.9) { conf = Math.min(90, 55 + dom * 150); }
+    else if (ent < 1.05 && dom > 0.03) { conf = Math.min(60, 35 + dom * 80); }
+    else if ((ent / maxEnt) < 0.98 && dom > 0.02) { conf = Math.min(35, 15 + dom * 60); }
+    const dozenNames = ['D1 (1-12)', 'D2 (13-24)', 'D3 (25-36)'];
+    const Hnorm = ent / maxEnt;
+    entropyData = {
+      entropy: parseFloat(ent.toFixed(4)),
+      maxEntropy: parseFloat(maxEnt.toFixed(4)),
+      normalizedEntropy: parseFloat(Hnorm.toFixed(4)),
+      level: ent < 0.9 ? 'LOW_STRONG_PATTERN' : ent < 1.05 ? 'MODERATE_WEAK_PATTERN' : Hnorm < 0.98 ? 'SLIGHT_LEAN' : 'HIGH_NEAR_RANDOM',
+      dozenProbabilities: { D1: parseFloat(pf.toFixed(4)), D2: parseFloat(ps.toFixed(4)), D3: parseFloat(pt.toFixed(4)) },
+      biasedDozen: dozenNames[biasIdx],
+      biasProbability: parseFloat(biasProb.toFixed(4)),
+      dominanceDelta: parseFloat(dom.toFixed(4)),
+      patternConfidence: parseFloat(conf.toFixed(1)),
+      patternDetected: conf > 0,
+      conditionMet_strongPattern: ent < 0.9,
+      conditionMet_weakPattern: ent < 1.05 && dom > 0.03,
+      conditionMet_mildLean: Hnorm < 0.98 && dom > 0.02,
+      dominantDozenShare: parseFloat(biasProb.toFixed(4))
+    };
+  }
+
+  // ── Distortion Persistence (from Module 1 logic) ──
+  let persistenceData = null;
+  const sensitivity = document.getElementById('sensitivity')?.value || 'reliable';
+  const signalMode = document.getElementById('signalMode')?.value || 'twowindow';
+  const persResult = distortionPersistence(history, sensitivity, signalMode);
+  if (persResult) {
+    const dm = persResult.metrics13 || persResult.metricsCurr;
+    const dominantDozen = dm.counts.indexOf(Math.max(...dm.counts)) + 1;
+    const weakestDozen = dm.counts.indexOf(Math.min(...dm.counts)) + 1;
+    persistenceData = {
+      mode: persResult.mode,
+      sensitivity: persResult.sensitivity,
+      signalActive: persResult.active,
+      grade: persResult.grade,
+      explanation: persResult.explanation,
+      frame13_counts: { D1: dm.counts[0], D2: dm.counts[1], D3: dm.counts[2] },
+      gap: dm.gap,
+      pMax: parseFloat(dm.pmax.toFixed(4)),
+      normalizedEntropy: parseFloat(dm.Hnorm.toFixed(4)),
+      dominantDozen: 'D' + dominantDozen,
+      weakestDozen: 'D' + weakestDozen,
+      conditions: {
+        gapTriggered: dm.gap >= 4,
+        concentrationTriggered: dm.pmax >= 0.46 && dm.Hnorm <= 0.90,
+        gapSeverity: gapGrade(dm.gap),
+        thresholds: {
+          gapMild: 3, gapModerate: 4, gapStrong: 5, gapExtreme: 6,
+          pMaxThreshold: 0.46, HnormThreshold: 0.90
+        }
+      }
+    };
+    if (persResult.mode === 'twowindow' && persResult.metrics26) {
+      persistenceData.window26 = {
+        counts: { D1: persResult.metrics26.counts[0], D2: persResult.metrics26.counts[1], D3: persResult.metrics26.counts[2] },
+        gap: persResult.metrics26.gap,
+        grade: persResult.grade26,
+        confirmed: persResult.confirmed
+      };
+    }
+    if (persResult.mode === 'regime') {
+      persistenceData.regimeShift = {
+        shiftScore: parseFloat(persResult.shiftScore.toFixed(4)),
+        shiftLabel: persResult.shiftLabel,
+        prevFrame_counts: { D1: persResult.metricsPrev.counts[0], D2: persResult.metricsPrev.counts[1], D3: persResult.metricsPrev.counts[2] }
+      };
+    }
+  }
+
+  // ── Distortion Index (from Module 2 logic) ──
+  let distortionData = null;
+  const diResult = distortionIndex(history);
+  if (diResult) {
+    distortionData = {
+      frame12_counts: { D1: diResult.frame12[0], D2: diResult.frame12[1], D3: diResult.frame12[2] },
+      expectedPerDozen: 4,
+      deviations: { D1: diResult.deviations[0], D2: diResult.deviations[1], D3: diResult.deviations[2] },
+      totalDeviation: diResult.deviation,
+      distortionIndex: diResult.distortionIndex,
+      distortionLevel: diResult.distortionIndex <= 3 ? 'LOW' : diResult.distortionIndex <= 6 ? 'MODERATE' : 'HIGH',
+      dominantDozen: 'D' + diResult.dominantDozen,
+      weakestDozen: 'D' + diResult.weakestDozen,
+      conditions: {
+        isLowDistortion: diResult.distortionIndex <= 3,
+        isModerateDistortion: diResult.distortionIndex > 3 && diResult.distortionIndex <= 6,
+        isHighDistortion: diResult.distortionIndex > 6
+      }
+    };
+  }
+
+  // ── Splits (even/odd, high/low, red/black) ──
+  let evenCount = 0, oddCount = 0, highCount = 0, lowCount = 0, redCount = 0, blackCount = 0;
+  for (const x of history) {
+    if (x === 0) continue;
+    if (x % 2 === 0) evenCount++; else oddCount++;
+    if (x >= 19) highCount++; else lowCount++;
+    if (RED_NUMS.has(x)) redCount++; else blackCount++;
+  }
+
+  // ── Hot Numbers (top 6 from all history) ──
+  const freqMap = {};
+  for (const x of history) freqMap[x] = (freqMap[x] || 0) + 1;
+  const hotNumbers = Object.entries(freqMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([num, cnt]) => ({ number: parseInt(num), count: cnt }));
+
+  // ── Coded Verdict (full JS decision tree) ──
+  const codedVerdict = computeCodedVerdict();
+
+  // ── JS Conditions (every boolean the engine computed) ──
+  const jsConditions = {};
+  if (persistenceData) {
+    jsConditions.JS_CONDITION_signalActive = persistenceData.signalActive;
+    jsConditions.JS_CONDITION_gapTriggered = persistenceData.conditions.gapTriggered;
+    jsConditions.JS_CONDITION_concentrationTriggered = persistenceData.conditions.concentrationTriggered;
+    jsConditions.JS_CONDITION_gapMild = persistenceData.gap >= 3;
+    jsConditions.JS_CONDITION_gapModerate = persistenceData.gap >= 4;
+    jsConditions.JS_CONDITION_gapStrong = persistenceData.gap >= 5;
+    jsConditions.JS_CONDITION_gapExtreme = persistenceData.gap >= 6;
+    if (persistenceData.window26) {
+      jsConditions.JS_CONDITION_twoWindowConfirmed = persistenceData.window26.confirmed;
+    }
+    if (persistenceData.regimeShift) {
+      jsConditions.JS_CONDITION_regimeShiftDetected = persistenceData.regimeShift.shiftScore >= 0.30;
+      jsConditions.JS_CONDITION_regimeShiftLarge = persistenceData.regimeShift.shiftScore > 0.60;
+    }
+  }
+  if (entropyData) {
+    jsConditions.JS_CONDITION_strongPattern = entropyData.conditionMet_strongPattern;
+    jsConditions.JS_CONDITION_weakPattern = entropyData.conditionMet_weakPattern;
+    jsConditions.JS_CONDITION_mildLean = entropyData.conditionMet_mildLean || false;
+    jsConditions.JS_CONDITION_patternDetected = entropyData.patternDetected;
+    jsConditions.JS_CONDITION_nearRandom = !entropyData.conditionMet_strongPattern && !entropyData.conditionMet_weakPattern && !(entropyData.conditionMet_mildLean);
+    jsConditions.JS_CONDITION_entropyBelow09 = entropyData.entropy < 0.9;
+    jsConditions.JS_CONDITION_entropyBelow105 = entropyData.entropy < 1.05;
+    jsConditions.JS_CONDITION_hnormBelow098 = entropyData.normalizedEntropy < 0.98;
+    jsConditions.JS_CONDITION_dominantDozenAbove38pct = entropyData.dominantDozenShare >= 0.38;
+  }
+  if (distortionData) {
+    jsConditions.JS_CONDITION_highDistortion = distortionData.distortionIndex > 6;
+    jsConditions.JS_CONDITION_moderateDistortion = distortionData.distortionIndex > 3 && distortionData.distortionIndex <= 6;
+    jsConditions.JS_CONDITION_lowDistortion = distortionData.distortionIndex <= 3;
+  }
+  // Color conditions from CODED_VERDICT
+  if (codedVerdict.details && codedVerdict.details.colorStats) {
+    const cs = codedVerdict.details.colorStats;
+    jsConditions.JS_CONDITION_colorBiasDetected = cs.colorDelta > 0.08;
+    jsConditions.JS_CONDITION_strongColorBias = cs.colorDelta > 0.15;
+    jsConditions.JS_CONDITION_colorStreakActive = cs.currentStreak >= 3;
+    jsConditions.JS_CONDITION_dominantColorIsRed = cs.dominantColor === 'RED';
+    jsConditions.JS_CONDITION_dominantColorIsBlack = cs.dominantColor === 'BLACK';
+  }
+
+  return {
+    totalSpins: n,
+    nonZeroSpins: nonZero.length,
+    zeroCount: n - nonZero.length,
+    streaks: {
+      longestRed, longestBlack, longestHigh, longestLow
+    },
+    splits: { even: evenCount, odd: oddCount, high: highCount, low: lowCount, red: redCount, black: blackCount },
+    hotNumbers,
+    distributionLast36: dozens36,
+    distributionOverall: dozensAll,
+    recentSpins: history.slice(-15),
+    entropyAnalysis: entropyData,
+    distortionPersistence: persistenceData,
+    distortionIndex: distortionData,
+    JS_CONDITIONS: jsConditions,
+    CODED_VERDICT: codedVerdict
+  };
+}
+
+function updatePayloadPreview() {
+  const payload = generateMetricsPayload();
+  const el = document.getElementById('aiPayloadPreview');
+  if (el) {
+    el.textContent = JSON.stringify(payload, null, 2);
+  }
+}
+
+// ─── CHAT STATE ─────────────────────────────────────────────
+let chatMessages = [];
+
+function clearChat() {
+  chatMessages = [];
+  _aiCache = {};  // Clear cache when chat is cleared
+  const msgs = document.getElementById('aiMessages');
+  msgs.innerHTML = `<div class="chat-empty" id="chatEmpty">
+    <div class="chat-empty-icon">◎</div>
+    <h4>Ready to Analyse</h4>
+    <p>Add spin data on the Pattern tab, then ask the AI to explain trends or detect anomalies below.</p>
+  </div>`;
+}
+
+function appendUserMsg(text) {
+  const msgs = document.getElementById('aiMessages');
+  // Remove empty state
+  const empty = document.getElementById('chatEmpty');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = 'chat-msg user';
+  div.innerHTML = `
+    <div class="chat-msg-label">You</div>
+    <div class="chat-bubble-user">${text}</div>
+  `;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('aiMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ai';
+  div.id = 'typingIndicator';
+  div.innerHTML = `
+    <div class="chat-msg-label"><div class="ai-dot"></div> AI Analyst</div>
+    <div class="typing-indicator">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>
+  `;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typingIndicator');
+  if (t) t.remove();
+}
+
+function appendAIMsg(parsed) {
+  const msgs = document.getElementById('aiMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ai';
+
+  // Build structured bubble
+  let sectionsHTML = '';
+
+  // Summary section
+  if (parsed.summary) {
+    sectionsHTML += `
+      <div class="ai-section">
+        <div class="ai-section-label">Summary</div>
+        ${escapeHtml(parsed.summary)}
+      </div>`;
+  }
+
+  // Anomalies section
+  if (parsed.anomalies && parsed.anomalies.length) {
+    const items = parsed.anomalies.map(a => {
+      const severity = a.severity || 'low';
+      const badgeClass = severity === 'high' ? 'badge-high' : severity === 'medium' || severity === 'mid' ? 'badge-mid' : 'badge-low';
+      return `<div class="anomaly-item">
+        <span class="anomaly-badge ${badgeClass}">${severity}</span>
+        <span>${escapeHtml(a.detail || a)}</span>
+      </div>`;
+    }).join('');
+    sectionsHTML += `
+      <div class="ai-section">
+        <div class="ai-section-label">Anomalies Detected</div>
+        <div class="anomaly-list">${items}</div>
+      </div>`;
+  }
+
+  // Trend section
+  if (parsed.trend) {
+    sectionsHTML += `
+      <div class="ai-section">
+        <div class="ai-section-label">Current Trend</div>
+        ${escapeHtml(parsed.trend)}
+      </div>`;
+  }
+
+  // Final recommendation — always prominent
+  const rec = parsed.recommendation || parsed.final_recommendation || parsed.bet || null;
+  const reason = parsed.reason || parsed.reasoning || parsed.explanation || '';
+  const conf = parsed.confidence || parsed.confidence_pct || null;
+
+  if (rec) {
+    const confVal = typeof conf === 'number' ? conf : (conf ? parseInt(conf) : null);
+    const confBar = confVal !== null ? `
+      <div class="ai-confidence-row">
+        <span class="ai-conf-label">Confidence</span>
+        <div class="ai-conf-bar"><div class="ai-conf-fill" style="width:${Math.min(confVal,100)}%"></div></div>
+        <span class="ai-conf-pct">${confVal}%</span>
+      </div>` : '';
+
+    sectionsHTML += `
+      <div class="ai-final-rec">
+        <div class="ai-final-rec-label">Final Recommendation</div>
+        <div class="ai-final-bet">${escapeHtml(rec)}</div>
+        ${reason ? `<div class="ai-final-reason">${escapeHtml(reason)}</div>` : ''}
+        ${confBar}
+      </div>`;
+  }
+
+  // Color recommendation
+  const colorRec = parsed.color_recommendation || null;
+  const colorConf = parsed.color_confidence || null;
+  if (colorRec && colorRec !== 'NONE') {
+    const colorStyle = colorRec === 'RED' ? 'background:rgba(192,57,43,0.25);color:#e07070;border:1px solid rgba(192,57,43,0.5)' :
+                       colorRec === 'BLACK' ? 'background:rgba(50,50,50,0.5);color:#ccc;border:1px solid #555' : '';
+    const colorConfVal = typeof colorConf === 'number' ? colorConf : (colorConf ? parseInt(colorConf) : null);
+    const colorConfBar = colorConfVal !== null ? `
+      <div class="ai-confidence-row" style="margin-top:6px">
+        <span class="ai-conf-label">Confidence</span>
+        <div class="ai-conf-bar"><div class="ai-conf-fill" style="width:${Math.min(colorConfVal,100)}%;background:${colorRec === 'RED' ? '#c0392b' : '#666'}"></div></div>
+        <span class="ai-conf-pct">${colorConfVal}%</span>
+      </div>` : '';
+    sectionsHTML += `
+      <div class="ai-final-rec" style="margin-top:8px">
+        <div class="ai-final-rec-label">Color Suggestion</div>
+        <div class="ai-final-bet" style="${colorStyle};padding:4px 12px;border-radius:6px;display:inline-block;font-size:13px">${escapeHtml(colorRec)}</div>
+        ${colorConfBar}
+      </div>`;
+  }
+
+  // Fallback: if no structured data, show raw
+  if (!sectionsHTML) {
+    sectionsHTML = `<div class="ai-section" style="white-space:pre-wrap">${escapeHtml(parsed._raw || '')}</div>`;
+  }
+
+  div.innerHTML = `
+    <div class="chat-msg-label"><div class="ai-dot"></div> AI Analyst</div>
+    <div class="chat-bubble-ai">${sectionsHTML}</div>
+  `;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function appendErrorMsg(text) {
+  const msgs = document.getElementById('aiMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ai';
+  div.innerHTML = `
+    <div class="chat-msg-label"><div class="ai-dot" style="background:var(--red-light)"></div> Error</div>
+    <div class="chat-bubble-ai">
+      <div class="ai-section" style="color:var(--red-light)">${escapeHtml(text)}</div>
+    </div>
+  `;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function escapeHtml(str) {
+  if (typeof str !== 'string') return String(str || '');
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function parseAIResponse(raw) {
+  // Try to extract JSON from response
+  let json = null;
+  // Match JSON block (possibly wrapped in ```json ... ```)
+  const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/) || raw.match(/(\{[\s\S]*\})/);
+  if (match) {
+    try { json = JSON.parse(match[1]); } catch {}
+  }
+  // Direct parse attempt
+  if (!json) {
+    try { json = JSON.parse(raw.trim()); } catch {}
+  }
+  if (json) return json;
+  // Fallback: return raw
+  return { _raw: raw };
+}
+
+// ─── CONSISTENCY CHECK ──────────────────────────────────────
+/**
+ * After the AI responds, re-run computeCodedVerdict() and compare.
+ * Show a red warning banner if the AI deviated from JS logic.
+ */
+function runConsistencyCheck(parsed) {
+  const verdict = computeCodedVerdict();
+  const issues = [];
+
+  const aiRec = (parsed.recommendation || parsed.final_recommendation || parsed.bet || '').toString().toLowerCase();
+  const aiConf = typeof parsed.confidence === 'number' ? parsed.confidence : parseInt(parsed.confidence || '0') || 0;
+  const aiApproach = (parsed.approach || '').toString().toUpperCase();
+
+  // Check recommendation
+  if (verdict.approach !== 'NO_SIGNAL' && verdict.recommendDozen) {
+    const vd = verdict.recommendDozen;
+    const dozenMatchers = [
+      'dozen ' + vd, 'd' + vd,
+      vd === 1 ? '1st dozen' : vd === 2 ? '2nd dozen' : '3rd dozen',
+      vd === 1 ? 'first dozen' : vd === 2 ? 'second dozen' : 'third dozen',
+      verdict.recommendDozenLabel.toLowerCase()
+    ];
+    const matchesDozen = dozenMatchers.some(m => aiRec.includes(m));
+    if (aiRec && !matchesDozen) {
+      issues.push('Recommendation: AI said "' + (parsed.recommendation || '') + '" — JS verdict: "' + verdict.recommendDozenLabel + '"');
+    }
+  }
+
+  // Check confidence
+  if (Math.abs(aiConf - verdict.confidence) > 5) {
+    issues.push('Confidence: AI said ' + aiConf + '% — JS verdict: ' + verdict.confidence + '%');
+  }
+
+  // Check approach
+  if (aiApproach && verdict.approach && aiApproach !== verdict.approach) {
+    issues.push('Approach: AI said "' + aiApproach + '" — JS verdict: "' + verdict.approach + '"');
+  }
+
+  // Check color recommendation
+  const aiColor = (parsed.color_recommendation || '').toString().toUpperCase();
+  if (verdict.recommendColor !== 'NONE' && aiColor && aiColor !== verdict.recommendColor) {
+    issues.push('Color: AI said "' + aiColor + '" — JS verdict: "' + verdict.recommendColor + '"');
+  }
+  const aiColorConf = typeof parsed.color_confidence === 'number' ? parsed.color_confidence : parseInt(parsed.color_confidence || '0') || 0;
+  if (verdict.recommendColor !== 'NONE' && Math.abs(aiColorConf - verdict.colorConfidence) > 5) {
+    issues.push('Color Confidence: AI said ' + aiColorConf + '% — JS verdict: ' + verdict.colorConfidence + '%');
+  }
+
+  if (issues.length > 0) {
+    const msgs = document.getElementById('aiMessages');
+    const lastBubble = msgs.querySelector('.chat-msg.ai:last-child .chat-bubble-ai');
+    if (lastBubble) {
+      const warning = document.createElement('div');
+      warning.className = 'ai-consistency-warning';
+      warning.innerHTML = issues.map(i => escapeHtml(i)).join('<br>') +
+        '<br><em style="opacity:0.7;font-size:9px">The AI deviated from coded logic. Trust the JS-computed values shown in the side panel.</em>';
+      lastBubble.appendChild(warning);
+    }
+  }
+}
+
+// ─── MULTI-PROVIDER AI ──────────────────────────────────────
+const AI_PROVIDERS = {
+  groq: {
+    name: 'Groq',
+    defaultModel: 'llama-3.1-8b-instant',
+    needsKey: true,
+    info: '<strong style="color:var(--gold)">Groq</strong> — Free, blazing fast. Get key at <a href="https://console.groq.com/keys" target="_blank" style="color:var(--blue)">console.groq.com/keys</a>',
+    models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it', 'mixtral-8x7b-32768']
+  },
+  gemini: {
+    name: 'Google Gemini',
+    defaultModel: 'gemini-2.0-flash',
+    needsKey: true,
+    info: '<strong style="color:var(--gold)">Gemini</strong> — Free tier available. Get key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue)">aistudio.google.com/apikey</a>',
+    models: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+  },
+  openai: {
+    name: 'OpenAI',
+    defaultModel: 'gpt-4o-mini',
+    needsKey: true,
+    info: '<strong style="color:var(--gold)">OpenAI</strong> — Paid API. Get key at <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--blue)">platform.openai.com/api-keys</a>',
+    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo']
+  },
+  ollama: {
+    name: 'Ollama (Local)',
+    defaultModel: 'llama3.1:8b',
+    needsKey: false,
+    info: '<strong style="color:var(--gold)">Ollama</strong> — Runs locally, no API key needed. Requires Ollama on port 11434.',
+    models: ['llama3.1:8b', 'mistral', 'phi3']
+  }
+};
+
+function onProviderChange() {
+  const provider = document.getElementById('aiProvider').value;
+  const cfg = AI_PROVIDERS[provider];
+  document.getElementById('aiModel').value = cfg.defaultModel;
+  document.getElementById('providerInfo').innerHTML = cfg.info;
+  document.getElementById('apiKeyGroup').style.display = cfg.needsKey ? 'flex' : 'none';
+  localStorage.setItem('roulette_ai_provider', provider);
+}
+
+// Restore saved provider on load
+(function initAiProvider() {
+  const saved = localStorage.getItem('roulette_ai_provider');
+  if (saved && AI_PROVIDERS[saved]) {
+    document.getElementById('aiProvider').value = saved;
+    onProviderChange();
+  } else {
+    onProviderChange();
+  }
+  const savedKey = localStorage.getItem('roulette_ai_key');
+  if (savedKey) document.getElementById('aiApiKey').value = savedKey;
+})();
+
+// ─── AI RESPONSE CACHE (prevents different answers for same data) ────────
+let _aiCacheKey = '';
+let _aiCache = {};
+
+function getAICacheKey() {
+  // Cache key = hash of the full spin history so same data = same answer
+  return history.join(',');
+}
+
+const STRUCTURED_SYSTEM = `You are Claude Opus 4.6 acting as an interpreter of a roulette analytics dashboard.
+
+BINDING RULES (non-negotiable):
+1) NEVER recompute the betting decision. The app already computed it in CODED_VERDICT.
+2) You MUST copy these fields EXACTLY from CODED_VERDICT:
+   - approach
+   - recommendDozenLabel (as recommendation)
+   - confidence (integer)
+   - recommendColor (as color_recommendation)
+   - colorConfidence (integer, as color_confidence)
+3) If CODED_VERDICT.approach == "NO_SIGNAL", recommendation MUST be "No bet recommended" and confidence MUST be 0.
+4) You may explain and cite supporting metrics (persistence gap/grade, DI, entropy, regime shift diagnostics), but you must NOT override the verdict.
+
+TREND SHIFT / REGIME LOGIC (how to talk about it):
+- "Trend shift" should be discussed ONLY when the provided payload includes regime shift metrics (or an explicit shift score / label).
+- If regime shift metrics are absent (e.g., not enough data or mode not enabled), explicitly say: "Regime shift not evaluated / insufficient data" rather than guessing.
+- If user changed sensitivity/mode, treat it as a new analytical configuration; do not assume prior configuration.
+
+OUTPUT FORMAT:
+Return JSON ONLY, no markdown, with exactly this schema:
+{
+  "summary": "...",
+  "anomalies": [{"severity":"high|medium|low","detail":"..."}],
+  "trend": "...",
+  "approach": "<COPY EXACT>",
+  "recommendation": "<COPY EXACT>",
+  "color_recommendation": "<COPY EXACT>",
+  "color_confidence": <COPY EXACT INTEGER>,
+  "reason": "...",
+  "confidence": <COPY EXACT INTEGER>
+}
+`;
+
+async function callAI(userMessage, promptText) {
+  const provider = document.getElementById('aiProvider').value;
+  const model = document.getElementById('aiModel').value;
+  const apiKey = document.getElementById('aiApiKey').value.trim();
+  const cfg = AI_PROVIDERS[provider];
+
+  if (cfg.needsKey && !apiKey) {
+    appendErrorMsg(`Please enter your ${cfg.name} API key above.`);
+    return;
+  }
+  if (apiKey) localStorage.setItem('roulette_ai_key', apiKey);
+  localStorage.setItem('roulette_ai_provider', provider);
+
+  // ── Cache: same spins + same action = same answer ──
+  const cacheKey = getAICacheKey() + '||' + userMessage;
+  if (_aiCache[cacheKey]) {
+    appendUserMsg(userMessage);
+    appendAIMsg(_aiCache[cacheKey]);
+    runConsistencyCheck(_aiCache[cacheKey]);
+    return;
+  }
+
+  appendUserMsg(userMessage);
+  showTyping();
+
+  try {
+    let raw;
+    if (provider === 'ollama') {
+      raw = await callViaOllama(model, promptText);
+    } else if (provider === 'gemini') {
+      raw = await callViaGemini(model, apiKey, promptText);
+    } else {
+      raw = await callViaOpenAICompat(provider, model, apiKey, promptText);
+    }
+    removeTyping();
+    const parsed = parseAIResponse(raw);
+    // Cache the response for this exact spin state + action
+    _aiCache[cacheKey] = parsed;
+    appendAIMsg(parsed);
+    runConsistencyCheck(parsed);
+  } catch (e) {
+    removeTyping();
+    appendErrorMsg(`${cfg.name} error: ${e.message}`);
+  }
+}
+
+async function callViaOllama(model, prompt) {
+  const response = await fetch('http://localhost:11434/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, temperature: 0, messages: [
+      { role: 'system', content: STRUCTURED_SYSTEM },
+      { role: 'user', content: prompt }
+    ], stream: false })
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  return data.message?.content || JSON.stringify(data);
+}
+
+async function callViaOpenAICompat(provider, model, apiKey, prompt) {
+  const hosts = {
+    openai: 'https://api.openai.com/v1/chat/completions',
+    groq:   'https://api.groq.com/openai/v1/chat/completions'
+  };
+  const url = hosts[provider];
+  if (!url) throw new Error(`Unknown provider: ${provider}`);
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0,
+      messages: [
+        { role: 'system', content: STRUCTURED_SYSTEM },
+        { role: 'user', content: prompt }
+      ],
+      stream: false,
+      response_format: (provider === 'openai' || model.includes('llama')) ? { type: 'json_object' } : undefined
+    })
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(err || `HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || JSON.stringify(data);
+}
+
+async function callViaGemini(model, apiKey, prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: STRUCTURED_SYSTEM + '\n\n' + prompt }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0 }
+    })
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(err || `HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(data);
+}
+
+function buildConditionSummary(metrics) {
+  let lines = [];
+  lines.push('=== CODED CONDITIONS STATUS ===');
+  
+  if (metrics.entropyAnalysis) {
+    const e = metrics.entropyAnalysis;
+    lines.push(`Entropy: ${e.entropy} (${e.level})`);
+    lines.push(`Pattern detected: ${e.patternDetected} | Confidence: ${e.patternConfidence}%`);
+    lines.push(`Biased dozen: ${e.biasedDozen} (prob: ${e.biasProbability}, delta from expected: ${e.dominanceDelta > 0 ? '+' : ''}${e.dominanceDelta})`);
+    lines.push(`Strong pattern condition (entropy < 0.9): ${e.conditionMet_strongPattern}`);
+    lines.push(`Weak pattern condition (entropy < 1.05 & delta > 0.03): ${e.conditionMet_weakPattern}`);
+    lines.push(`Mild lean condition (Hnorm < 0.98 & delta > 0.02): ${e.conditionMet_mildLean || false}`);
+    lines.push(`Dominant dozen share: ${(e.dominantDozenShare * 100).toFixed(1)}% (≥38% triggers DISTRIBUTION_LEAN)`);
+  } else {
+    lines.push('Entropy: Not enough data (need 12+ spins)');
+  }
+  
+  if (metrics.distortionPersistence) {
+    const p = metrics.distortionPersistence;
+    lines.push(`\nDistortion Persistence Signal: ${p.signalActive ? 'ACTIVE' : 'INACTIVE'}`);
+    lines.push(`Mode: ${p.mode} | Sensitivity: ${p.sensitivity}`);
+    lines.push(`Gap: ${p.gap} | Grade: ${p.grade}`);
+    lines.push(`Gap triggered (≥4): ${p.conditions.gapTriggered}`);
+    lines.push(`Concentration triggered (pMax≥0.46 & Hnorm≤0.90): ${p.conditions.concentrationTriggered}`);
+    lines.push(`Dominant: ${p.dominantDozen} | Weakest: ${p.weakestDozen}`);
+    lines.push(`System explanation: ${p.explanation}`);
+    if (p.window26) {
+      lines.push(`26-window confirmed: ${p.window26.confirmed}`);
+    }
+    if (p.regimeShift) {
+      lines.push(`Regime shift score: ${p.regimeShift.shiftScore} (${p.regimeShift.shiftLabel})`);
+    }
+  } else {
+    lines.push('\nDistortion Persistence: Not enough data');
+  }
+  
+  if (metrics.distortionIndex) {
+    const d = metrics.distortionIndex;
+    lines.push(`\nDistortion Index: ${d.distortionIndex} / 10 (${d.distortionLevel})`);
+    lines.push(`Frame12 counts: D1=${d.frame12_counts.D1}, D2=${d.frame12_counts.D2}, D3=${d.frame12_counts.D3} (expected: 4 each)`);
+    lines.push(`Deviations: D1=${d.deviations.D1}, D2=${d.deviations.D2}, D3=${d.deviations.D3}`);
+    lines.push(`Dominant: ${d.dominantDozen} | Weakest: ${d.weakestDozen}`);
+    lines.push(`Low distortion (≤3): ${d.conditions.isLowDistortion}`);
+    lines.push(`Moderate distortion (3-6): ${d.conditions.isModerateDistortion}`);
+    lines.push(`High distortion (>6): ${d.conditions.isHighDistortion}`);
+  } else {
+    lines.push('\nDistortion Index: Not enough data');
+  }
+
+  // Color analysis
+  if (metrics.CODED_VERDICT && metrics.CODED_VERDICT.details && metrics.CODED_VERDICT.details.colorStats) {
+    const cs = metrics.CODED_VERDICT.details.colorStats;
+    lines.push(`\n=== COLOR ANALYSIS ===`);
+    lines.push(`Red: ${cs.redCount}/${cs.total} (${(cs.pRed*100).toFixed(1)}%) | Black: ${cs.blackCount}/${cs.total} (${(cs.pBlack*100).toFixed(1)}%)`);
+    lines.push(`Delta: ${(cs.colorDelta*100).toFixed(1)}% | Dominant: ${cs.dominantColor}`);
+    lines.push(`Current streak: ${cs.currentStreak} ${cs.currentStreakColor}`);
+    lines.push(`Color bias detected (delta>8%): ${cs.colorDelta > 0.08}`);
+    lines.push(`Strong color bias (delta>15%): ${cs.colorDelta > 0.15}`);
+  }
+  if (metrics.CODED_VERDICT) {
+    lines.push(`\n=== COLOR VERDICT ===`);
+    lines.push(`Recommend color: ${metrics.CODED_VERDICT.recommendColor}`);
+    lines.push(`Color confidence: ${metrics.CODED_VERDICT.colorConfidence}%`);
+    lines.push(`Color trigger: ${metrics.CODED_VERDICT.colorTrigger}`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Build the compact payload sent to the AI.
+ * Only the fields the model needs — keeps it focused and prevents hallucination.
+ */
+function buildCompactPayload() {
+  const metrics = generateMetricsPayload();
+  if (metrics.error) return metrics;   // pass error through
+  return {
+    totalSpins: metrics.totalSpins,
+    nonZeroSpins: metrics.nonZeroSpins,
+    recentSpins: metrics.recentSpins,
+    entropyAnalysis: metrics.entropyAnalysis,
+    distortionPersistence: metrics.distortionPersistence,
+    distortionIndex: metrics.distortionIndex,
+    CODED_VERDICT: metrics.CODED_VERDICT
+  };
+}
+
+function explainCharts() {
+  const compact = buildCompactPayload();
+  if (compact.error) { appendErrorMsg(compact.error); return; }
+  const prompt = `TASK: Explain trends and what the dashboard metrics currently indicate (descriptive only).
+
+Instructions:
+- Use the payload's entropyAnalysis, distortionPersistence, distortionIndex, and any regime shift metrics if present.
+- Keep anomalies minimal unless something is clearly outside normal thresholds.
+- Still obey the binding rules: copy CODED_VERDICT fields exactly.
+
+DATA PAYLOAD (JSON):
+${JSON.stringify(compact)}`;
+  callAI('Explain current trends & patterns', prompt);
+}
+
+function detectAnomalies() {
+  const compact = buildCompactPayload();
+  if (compact.error) { appendErrorMsg(compact.error); return; }
+  const prompt = `TASK: Detect statistical anomalies and summarize why the CODED_VERDICT recommendation is what it is.
+
+Instructions:
+- List anomalies with severity based on:
+  - Persistence gap grade (mild/moderate/strong/extreme)
+  - Two-window confirmation status (if present)
+  - Distortion Index level (low/moderate/high)
+  - Entropy level / patternConfidence
+  - Regime shift score/label (if present)
+- If the dashboard indicates a possible regime shift, describe what changed (prev vs current distribution) WITHOUT changing the bet.
+- Still obey the binding rules: copy CODED_VERDICT fields exactly.
+
+DATA PAYLOAD (JSON):
+${JSON.stringify(compact)}`;
+  callAI('Detect anomalies & give recommendation', prompt);
+}
+
+function getBetAdvice() {
+  const compact = buildCompactPayload();
+  if (compact.error) { appendErrorMsg(compact.error); return; }
+  const prompt = `TASK: Provide the single best statistical action right now, strictly following CODED_VERDICT.
+
+Instructions:
+- Output must be short and decisive, but include 1-2 metric citations (gap/DI/entropy) that justify the coded trigger.
+- If approach is NO_SIGNAL, explicitly advise no bet and explain which triggers failed.
+- Still obey the binding rules: copy CODED_VERDICT fields exactly.
+
+DATA PAYLOAD (JSON):
+${JSON.stringify(compact)}`;
+  callAI('What should I bet right now?', prompt);
+}
+
+// ─── HEATMAP ON NUMBER GRID ──────────────────────────────────
+function renderHeatmap() {
+  // Count frequency per number
+  const freq = {};
+  for (let i = 0; i <= 36; i++) freq[i] = 0;
+  history.forEach(n => { if (freq[n] !== undefined) freq[n]++; });
+
+  const maxFreq = Math.max(...Object.values(freq), 1);
+
+  for (let i = 0; i <= 36; i++) {
+    const btn = document.getElementById(`numBtn${i}`);
+    const bar = document.getElementById(`heat${i}`);
+    const badge = document.getElementById(`freq${i}`);
+    if (!btn || !bar) continue;
+
+    const cnt = freq[i];
+    const pct = cnt / maxFreq;
+
+    // Set bar height
+    bar.style.height = (pct * 60) + '%';
+
+    // Heat class
+    btn.classList.remove('heat-cold','heat-warm','heat-hot','heat-fire');
+    if (cnt === 0) {
+      // no class
+    } else if (pct < 0.3) {
+      btn.classList.add('heat-cold');
+    } else if (pct < 0.6) {
+      btn.classList.add('heat-warm');
+    } else if (pct < 0.85) {
+      btn.classList.add('heat-hot');
+    } else {
+      btn.classList.add('heat-fire');
+    }
+
+    badge.textContent = cnt > 0 ? cnt : '';
+  }
+}
+
+// ─── STATS TAB ───────────────────────────────────────────────
+function renderStatsTab() {
+  const n = history.length;
+
+  // Heatmap grid (0–36)
+  const hg = document.getElementById('heatmapGrid');
+  if (hg) {
+    const freq = {};
+    for (let i = 0; i <= 36; i++) freq[i] = 0;
+    history.forEach(x => { if (freq[x] !== undefined) freq[x]++; });
+    const maxF = Math.max(...Object.values(freq), 1);
+
+    hg.innerHTML = Array.from({length: 37}, (_, i) => {
+      const cnt = freq[i];
+      const pct = cnt / maxF;
+      let cls = cnt === 0 ? 'hm-none' : pct < 0.25 ? 'hm-cold' : pct < 0.55 ? 'hm-warm' : pct < 0.8 ? 'hm-hot' : 'hm-fire';
+      if (i === 0) cls = cnt === 0 ? 'hm-zero' : 'hm-hot';
+      const redDot = RED_NUMS.has(i) ? '<div class="hm-red-dot"></div>' : '';
+      return `<div class="hm-cell ${cls}" title="${i}: ${cnt} hits">
+        ${redDot}
+        <span class="hm-num">${i}</span>
+        <span class="hm-cnt">${cnt > 0 ? cnt : ''}</span>
+      </div>`;
+    }).join('');
+
+    // Top 10 hottest
+    const sorted = Object.entries(freq).sort((a,b) => b[1]-a[1]).filter(([,v]) => v > 0).slice(0,10);
+    const topEl = document.getElementById('topNumbers');
+    if (topEl) {
+      topEl.innerHTML = sorted.length ? sorted.map(([num, cnt]) => {
+        const n = parseInt(num);
+        const cls = n === 0 ? 'zero-chip' : RED_NUMS.has(n) ? 'red-chip' : 'black-chip';
+        return `<div class="top-num-chip ${cls}">${n} <span class="chip-freq">×${cnt}</span></div>`;
+      }).join('') : '<span style="font-size:10px;color:var(--text-dim)">No data</span>';
+    }
+
+    // Bottom 5 coldest (hit at least once)
+    const coldSorted = Object.entries(freq).sort((a,b) => a[1]-b[1]).filter(([,v]) => v > 0).slice(0,5);
+    const coldEl = document.getElementById('coldNumbers');
+    if (coldEl) {
+      coldEl.innerHTML = coldSorted.length ? coldSorted.map(([num, cnt]) => {
+        const n = parseInt(num);
+        const cls = n === 0 ? 'zero-chip' : RED_NUMS.has(n) ? 'red-chip' : 'black-chip';
+        return `<div class="top-num-chip ${cls}">${n} <span class="chip-freq">×${cnt}</span></div>`;
+      }).join('') : '<span style="font-size:10px;color:var(--text-dim)">No data</span>';
+    }
+
+    // Never hit
+    const neverEl = document.getElementById('neverHit');
+    if (neverEl) {
+      const never = Object.entries(freq).filter(([,v]) => v === 0).map(([k]) => parseInt(k));
+      neverEl.innerHTML = never.length ? never.map(n => {
+        const cls = n === 0 ? 'zero-chip' : RED_NUMS.has(n) ? 'red-chip' : 'black-chip';
+        return `<div class="top-num-chip ${cls}">${n}</div>`;
+      }).join('') : '<span style="font-size:10px;color:var(--green-light)">All numbers hit! 🎲</span>';
+    }
+  }
+
+  // Dozen timeline (groups of 3 spins, last 60 spins)
+  const tl = document.getElementById('dozenTimeline');
+  if (tl && history.length > 0) {
+    const slice = history.slice(-60);
+    const groups = [];
+    for (let i = 0; i < slice.length; i += 3) {
+      groups.push(slice.slice(i, i+3));
+    }
+    tl.innerHTML = groups.map(g => {
+      const segs = g.map(s => {
+        const d = getDozen(s);
+        const cls = s === 0 ? 'dt-seg-z' : d === 1 ? 'dt-seg-d1' : d === 2 ? 'dt-seg-d2' : 'dt-seg-d3';
+        return `<div class="dt-seg ${cls}" style="height:${100/g.length}%"></div>`;
+      }).join('');
+      return `<div class="dt-col">${segs}</div>`;
+    }).join('');
+  } else if (tl) {
+    tl.innerHTML = '<span style="font-size:10px;color:var(--text-dim);align-self:center;padding:0 8px">Add spins to see timeline…</span>';
+  }
+
+  // Streak stats
+  let longestRed=0,currRed=0,longestBlack=0,currBlack=0;
+  let longestHigh=0,currHigh=0,longestLow=0,currLow=0;
+  let zeroGap=0,maxZeroGap=0,currZeroGap=0;
+  let redCnt=0,blackCnt=0,evenCnt=0,oddCnt=0,highCnt=0,lowCnt=0,zeroCnt=0;
+
+  for (const x of history) {
+    if (x === 0) {
+      zeroCnt++;
+      maxZeroGap = Math.max(maxZeroGap, currZeroGap);
+      currZeroGap = 0;
+      currRed=0;currBlack=0;currHigh=0;currLow=0;
+    } else {
+      currZeroGap++;
+      if (RED_NUMS.has(x)) { redCnt++; currRed++; currBlack=0; } else { blackCnt++; currBlack++; currRed=0; }
+      if (x >= 19) { highCnt++; currHigh++; currLow=0; } else { lowCnt++; currLow++; currHigh=0; }
+      if (x % 2 === 0) evenCnt++; else oddCnt++;
+      longestRed=Math.max(longestRed,currRed); longestBlack=Math.max(longestBlack,currBlack);
+      longestHigh=Math.max(longestHigh,currHigh); longestLow=Math.max(longestLow,currLow);
+    }
+  }
+  maxZeroGap = Math.max(maxZeroGap, currZeroGap);
+  zeroGap = currZeroGap; // spins since last zero
+
+  const txt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  txt('streak-red', longestRed || '—');
+  txt('streak-black', longestBlack || '—');
+  txt('streak-high', longestHigh || '—');
+  txt('streak-low', longestLow || '—');
+  txt('streak-zero-gap', history.length ? zeroGap : '—');
+  txt('streak-zero-max', maxZeroGap || '—');
+
+  txt('sb-total', n);
+  txt('sb-nonzero', n - zeroCnt);
+  txt('sb-zeros', zeroCnt);
+  txt('sb-red', redCnt);
+  txt('sb-black', blackCnt);
+  txt('sb-even', evenCnt);
+  txt('sb-odd', oddCnt);
+  txt('sb-high', highCnt);
+  txt('sb-low', lowCnt);
+}
+
+// ─── LIVE STATUS STRIP ───────────────────────────────────────
+function renderStatusStrip() {
+  const nonZero = getNonZeroSpins(history);
+  const txt = (id, v, color) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = v;
+    if (color) e.style.color = color;
+  };
+  const cls = (id, c) => { const e = document.getElementById(id); if (e) e.className = `ss-pill ${c}`; };
+
+  // Last number
+  if (history.length) {
+    const last = history[history.length - 1];
+    const col = last === 0 ? 'var(--green-light)' : RED_NUMS.has(last) ? 'var(--red-light)' : '#ccc';
+    txt('ss-last', last, col);
+  } else {
+    txt('ss-last', '—', 'var(--text-dim)');
+  }
+
+  // Signal + Gap from persistence
+  if (nonZero.length >= 13) {
+    const sens = document.getElementById('sensitivity') ? document.getElementById('sensitivity').value : 'standard';
+    const mode = document.getElementById('signalMode') ? document.getElementById('signalMode').value : 'standard';
+    const result = distortionPersistence(history, sens, mode);
+    const dm = result.metrics13 || result.metricsCurr;
+
+    if (result.active) {
+      cls('ss-signal', 'ss-pill ss-pill-active'); document.getElementById('ss-signal').textContent = 'ACTIVE';
+    } else {
+      cls('ss-signal', 'ss-pill ss-pill-inactive'); document.getElementById('ss-signal').textContent = 'INACTIVE';
+    }
+    txt('ss-gap', dm.gap, dm.gap >= 5 ? 'var(--red-light)' : dm.gap >= 3 ? 'var(--gold)' : 'var(--text-dim)');
+
+    // Dominant
+    const domIdx = dm.counts.indexOf(Math.max(...dm.counts));
+    const domColors = ['var(--d1)','var(--d2)','var(--d3)'];
+    txt('ss-dominant', `D${domIdx+1}`, domColors[domIdx]);
+
+    // Approach
+    // Approach — use computeCodedVerdict() as single source of truth
+    const verdict = computeCodedVerdict();
+    if (verdict.approach === 'MOMENTUM') {
+      cls('ss-approach', 'ss-pill ss-pill-active'); document.getElementById('ss-approach').textContent = `MOMENTUM → D${verdict.recommendDozen}`;
+    } else if (verdict.approach === 'MEAN_REVERSION') {
+      cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `REVERSION → D${verdict.recommendDozen}`;
+    } else if (verdict.approach === 'ENTROPY_BIAS') {
+      cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `ENTROPY → D${verdict.recommendDozen}`;
+    } else if (verdict.approach === 'DI_MODERATE') {
+      cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `DI MOD → D${verdict.recommendDozen}`;
+    } else if (verdict.approach === 'DISTRIBUTION_LEAN') {
+      cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `DIST LEAN → D${verdict.recommendDozen}`;
+    } else {
+      cls('ss-approach', 'ss-pill ss-pill-inactive'); document.getElementById('ss-approach').textContent = 'NO SIGNAL';
+    }
+
+    // Color recommendation from verdict
+    const colorVal = verdict.recommendColor;
+    if (colorVal && colorVal !== 'NONE') {
+      const cCol = colorVal === 'RED' ? 'var(--red-light)' : '#ccc';
+      txt('ss-color', `${colorVal} (${verdict.colorConfidence}%)`, cCol);
+    } else {
+      txt('ss-color', '—', 'var(--text-dim)');
+    }
+  } else {
+    cls('ss-signal', 'ss-pill ss-pill-inactive'); document.getElementById('ss-signal').textContent = 'NEED DATA';
+    txt('ss-gap', '—', 'var(--text-dim)');
+    txt('ss-dominant', '—', 'var(--text-dim)');
+    cls('ss-approach', 'ss-pill ss-pill-inactive'); document.getElementById('ss-approach').textContent = '—';
+    txt('ss-color', '—', 'var(--text-dim)');
+  }
+
+  // Entropy
+  if (nonZero.length >= 12) {
+    const last36nz = nonZero.slice(-36);
+    const { d1, d2, d3 } = countDozens(last36nz);
+    const tot = d1+d2+d3;
+    if (tot > 0) {
+      const probs = [d1/tot, d2/tot, d3/tot];
+      const H = -probs.reduce((s,p) => s + (p>0 ? p*Math.log(p) : 0), 0);
+      const Hnorm = H / Math.log(3);
+      const ecol = Hnorm < 0.9 ? 'var(--red-light)' : Hnorm < 1.05 ? 'var(--gold)' : 'var(--text-dim)';
+      txt('ss-entropy', Hnorm.toFixed(3), ecol);
+    }
+  } else {
+    txt('ss-entropy', '—', 'var(--text-dim)');
+  }
+
+  // Distortion index
+  if (nonZero.length >= 12) {
+    const di = distortionIndex(history);
+    const diVal = di.distortionIndex;
+    const dcol = diVal <= 3 ? 'var(--green-light)' : diVal <= 6 ? 'var(--gold)' : 'var(--red-light)';
+    txt('ss-distortion', diVal.toFixed(2), dcol);
+  } else {
+    txt('ss-distortion', '—', 'var(--text-dim)');
+  }
+
+  // Streak (current)
+  let streak = 0, streakType = '';
+  for (let i = history.length-1; i >= 0; i--) {
+    const x = history[i];
+    if (x === 0) break;
+    if (streak === 0) {
+      streakType = RED_NUMS.has(x) ? 'RED' : 'BLACK';
+      streak = 1;
+    } else {
+      if ((streakType === 'RED') === RED_NUMS.has(x)) streak++;
+      else break;
+    }
+  }
+  if (streak >= 2) {
+    txt('ss-streak', `${streak} ${streakType}`, streakType === 'RED' ? 'var(--red-light)' : '#aaa');
+  } else {
+    txt('ss-streak', '—', 'var(--text-dim)');
+  }
+}
+
+// ─── AI CONDITIONS DASHBOARD ─────────────────────────────────
+function renderConditionsDashboard() {
+  const nonZero = getNonZeroSpins(history);
+  const txt = (id, v, color) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = v;
+    if (color) e.style.color = color;
+  };
+
+  if (nonZero.length < 13) {
+    txt('cp-signal', 'Need 13+ spins');
+    txt('cp-gap', '—'); txt('cp-grade', '—'); txt('cp-pmax', '—'); txt('cp-hnorm', '—');
+    txt('cp-dominant', '—'); txt('cp-weakest', '—');
+    txt('cp-entropy', '—'); txt('cp-entropy-level', '—');
+    txt('cp-pattern-det', '—'); txt('cp-conf', '—'); txt('cp-bias-doz', '—');
+    txt('cp-di-val', '—'); txt('cp-di-level', '—'); txt('cp-di-frame', '—');
+    txt('cp-di-dom', '—'); txt('cp-di-weak', '—');
+    txt('cp-approach', '—'); txt('cp-bet', '—'); txt('cp-color', '—'); txt('cp-color-conf', '—'); txt('cp-trigger', '—');
+    return;
+  }
+
+  const sens = document.getElementById('sensitivity') ? document.getElementById('sensitivity').value : 'standard';
+  const mode = document.getElementById('signalMode') ? document.getElementById('signalMode').value : 'standard';
+  const result = distortionPersistence(history, sens, mode);
+  const dm = result.metrics13 || result.metricsCurr;
+  const domIdx = dm.counts.indexOf(Math.max(...dm.counts));
+  const weakIdx = dm.counts.indexOf(Math.min(...dm.counts));
+  const domColors = ['var(--d1)','var(--d2)','var(--d3)'];
+
+  txt('cp-signal', result.active ? '● ACTIVE' : '○ INACTIVE', result.active ? 'var(--green-light)' : 'var(--text-dim)');
+  txt('cp-gap', dm.gap, dm.gap >= 5 ? 'var(--red-light)' : dm.gap >= 3 ? 'var(--gold)' : 'var(--text)');
+  txt('cp-grade', result.grade, 'var(--text)');
+  txt('cp-pmax', (dm.pmax*100).toFixed(1)+'%');
+  txt('cp-hnorm', dm.Hnorm.toFixed(3));
+  txt('cp-dominant', `D${domIdx+1}`, domColors[domIdx]);
+  txt('cp-weakest', `D${weakIdx+1}`, 'var(--text-dim)');
+
+  // Entropy
+  const last36nz = nonZero.slice(-36);
+  const { d1, d2, d3 } = countDozens(last36nz);
+  const tot = d1+d2+d3;
+  if (tot > 0) {
+    const probs = [d1/tot, d2/tot, d3/tot];
+    const H = -probs.reduce((s,p) => s + (p>0 ? p*Math.log(p) : 0), 0);
+    const Hnorm = H / Math.log(3);
+    const condStrongPattern = Hnorm < 0.9;
+    const biasIdx = probs.indexOf(Math.max(...probs));
+    const dom = probs[biasIdx] - 0.333;
+    const condWeakPattern = Hnorm < 1.05 && dom > 0.03;
+    const condMildLean = Hnorm < 0.98 && dom > 0.02;
+    let conf = 0;
+    if (condStrongPattern) conf = Math.min(90, 55 + dom*150);
+    else if (condWeakPattern) conf = Math.min(60, 35 + dom*80);
+    else if (condMildLean) conf = Math.min(35, 15 + dom*60);
+    const level = condStrongPattern ? 'Strong Pattern' : condWeakPattern ? 'Weak Pattern' : condMildLean ? 'Mild Lean' : 'Near Random';
+    const ecol = condStrongPattern ? 'var(--red-light)' : condWeakPattern ? 'var(--gold)' : condMildLean ? '#8a9aab' : 'var(--text-dim)';
+    txt('cp-entropy', Hnorm.toFixed(3), ecol);
+    txt('cp-entropy-level', level, ecol);
+    txt('cp-pattern-det', conf > 0 ? 'Yes' : 'No', conf > 0 ? 'var(--green-light)' : 'var(--text-dim)');
+    txt('cp-conf', conf > 0 ? conf.toFixed(1)+'%' : '—');
+    txt('cp-bias-doz', `D${biasIdx+1}`, domColors[biasIdx]);
+  }
+
+  // Distortion Index
+  if (nonZero.length >= 12) {
+    const di = distortionIndex(history);
+    const diVal = di.distortionIndex;
+    const dcol = diVal <= 3 ? 'var(--green-light)' : diVal <= 6 ? 'var(--gold)' : 'var(--red-light)';
+    txt('cp-di-val', diVal.toFixed(2), dcol);
+    txt('cp-di-level', di.distortionLevel || (diVal <= 3 ? 'Low' : diVal <= 6 ? 'Moderate' : 'High'), dcol);
+    txt('cp-di-frame', `[${di.frame12[0]}·${di.frame12[1]}·${di.frame12[2]}]`);
+    txt('cp-di-dom', `D${di.dominantDozen}`, domColors[di.dominantDozen-1]);
+    txt('cp-di-weak', `D${di.weakestDozen}`, 'var(--text-dim)');
+
+    // Coded logic verdict — use computeCodedVerdict() as single source of truth
+    const verdict = computeCodedVerdict();
+    const approachColor = verdict.approach === 'MOMENTUM' ? 'var(--green-light)' : verdict.approach === 'MEAN_REVERSION' ? 'var(--gold)' : verdict.approach === 'ENTROPY_BIAS' ? 'var(--blue)' : (verdict.approach === 'DI_MODERATE' || verdict.approach === 'DISTRIBUTION_LEAN') ? '#8a9aab' : 'var(--text-dim)';
+    txt('cp-approach', verdict.approach, approachColor);
+    txt('cp-bet', verdict.recommendDozenLabel, verdict.approach !== 'NO_SIGNAL' ? 'var(--gold)' : 'var(--text-dim)');
+    const colorVal = verdict.recommendColor;
+    const colorDisplayColor = colorVal === 'RED' ? 'var(--red-light)' : colorVal === 'BLACK' ? '#ccc' : 'var(--text-dim)';
+    txt('cp-color', colorVal !== 'NONE' ? colorVal : '—', colorDisplayColor);
+    txt('cp-color-conf', verdict.colorConfidence > 0 ? verdict.colorConfidence + '%' : '—', colorDisplayColor);
+    txt('cp-trigger', verdict.trigger, 'var(--text-dim)');
+  }
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+renderAll();
+if (history.length) showToast(`Restored ${history.length} spins from last session`);
+</script>
+</body>
+</html>
