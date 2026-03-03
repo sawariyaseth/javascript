@@ -2213,7 +2213,7 @@ async function callAI(promptText) {
 }
 
 async function callViaOllama(model, prompt) {
-  const response = await fetch('/ollama-chat', {
+  const response = await fetch('http://localhost:11434/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], stream: false })
@@ -2224,13 +2224,23 @@ async function callViaOllama(model, prompt) {
 }
 
 async function callViaOpenAICompat(provider, model, apiKey, prompt) {
-  // Works for Groq and OpenAI (same API format)
-  const response = await fetch('/api/proxy', {
+  // Direct browser call — no proxy needed
+  const hosts = {
+    openai: 'https://api.openai.com/v1/chat/completions',
+    groq:   'https://api.groq.com/openai/v1/chat/completions'
+  };
+  const url = hosts[provider];
+  if (!url) throw new Error(`Unknown provider: ${provider}`);
+  const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
     body: JSON.stringify({
-      provider, model, apiKey,
-      messages: [{ role: 'user', content: prompt }]
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      stream: false
     })
   });
   if (!response.ok) {
@@ -2242,12 +2252,13 @@ async function callViaOpenAICompat(provider, model, apiKey, prompt) {
 }
 
 async function callViaGemini(model, apiKey, prompt) {
-  const response = await fetch('/api/proxy', {
+  // Direct browser call to Gemini REST API
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      provider: 'gemini', model, apiKey,
-      messages: [{ role: 'user', content: prompt }]
+      contents: [{ parts: [{ text: prompt }] }]
     })
   });
   if (!response.ok) {

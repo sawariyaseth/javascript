@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Roulette Analyst v6</title>
+<title>Roulette Analyst v12</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -693,6 +693,53 @@
   /* ─── MODULE 2: DISTORTION INDEX ─── */
   .di-gauge-container { position: relative; width: 200px; height: 110px; margin: 0 auto 20px; }
   .di-gauge-svg { width: 200px; height: 110px; }
+
+  /* Velocity card */
+  .velocity-card {
+    display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+    padding: 12px 14px; border-radius: 6px; margin-bottom: 14px;
+    border: 1px solid var(--border); background: var(--surface);
+  }
+  .velocity-arrow { font-size: 20px; font-weight: 700; line-height: 1; }
+  .velocity-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 2px; }
+  .velocity-value { font-family: 'DM Mono', monospace; font-size: 13px; }
+  .velocity-class { font-size: 9px; letter-spacing: 1px; margin-top: 2px; }
+  .vel-accel  { color: var(--red-light); }
+  .vel-incr   { color: #e0a070; }
+  .vel-stable { color: var(--text-dim); }
+  .vel-decr   { color: var(--blue); }
+  .vel-corr   { color: var(--green-light); }
+
+  /* Significance badge */
+  .sig-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: 9px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase;
+  }
+  .sig-significant  { background: rgba(192,57,43,0.15); border: 1px solid rgba(192,57,43,0.4); color: var(--red-light); }
+  .sig-marginal     { background: rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.4); color: var(--gold); }
+  .sig-weak         { background: rgba(100,100,100,0.1);  border: 1px solid rgba(100,100,100,0.3); color: #8a9aab; }
+  .sig-none         { background: rgba(100,100,100,0.06); border: 1px solid rgba(100,100,100,0.2); color: var(--text-dim); }
+
+  /* Harmony card */
+  .harmony-card {
+    padding: 10px 14px; border-radius: 6px; margin-bottom: 14px;
+    border: 1px solid var(--border); background: var(--surface);
+  }
+  .harmony-meter {
+    height: 6px; border-radius: 3px; background: var(--surface2); overflow: hidden; margin: 8px 0 6px;
+  }
+  .harmony-fill {
+    height: 100%; border-radius: 3px; transition: width 0.6s ease, background 0.4s;
+  }
+  .harmony-label-row { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-dim); }
+
+  /* Sparkline trend */
+  .trend-card {
+    padding: 12px 14px; border-radius: 6px; margin-bottom: 14px;
+    border: 1px solid var(--border); background: var(--surface);
+  }
+  .trend-sparkline { width: 100%; height: 40px; }
+  .trend-direction { font-size: 10px; margin-top: 4px; letter-spacing: 1px; }
 
   .di-value-overlay { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; }
   .di-value-num { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 900; line-height: 1; transition: color 0.4s; }
@@ -1608,7 +1655,7 @@
 <header>
   <h1>Roulette Analyst</h1>
   <div class="header-meta">
-    <span class="tagline">Statistical Analysis Suite · v6</span>
+    <span class="tagline">Statistical Analysis Suite · v12</span>
     <div class="session-pill" onclick="exportHistory()" title="Export spin history">
       <div class="dot"></div>
       <span id="headerSpinCount">0 spins</span>
@@ -1645,6 +1692,10 @@
   <div class="ss-item">
     <span class="ss-label">Distortion</span>
     <span class="ss-value" id="ss-distortion" style="color:var(--text-dim)">—</span>
+  </div>
+  <div class="ss-item">
+    <span class="ss-label">Velocity</span>
+    <span class="ss-value" id="ss-velocity" style="color:var(--text-dim)">—</span>
   </div>
   <div class="ss-item">
     <span class="ss-label">Dominant</span>
@@ -1708,6 +1759,11 @@
         <button class="clear-btn" onclick="undoLast()">Undo</button>
         <button class="clear-btn" onclick="clearHistory()">Clear All</button>
         <button class="export-btn" onclick="exportHistory()" title="Export history as text">Export</button>
+        <button class="clear-btn" onclick="startNewSession()"
+          style="border-color:rgba(192,57,43,0.4);color:#e07070;"
+          title="Archive spins, start fresh table. Learning DB kept.">
+          ⟳ New Table
+        </button>
       </div>
 
       <div class="input-label">Spin History (<span id="histCount">0</span> spins) <span style="color:var(--border);font-size:9px;letter-spacing:1px">· CLICK CHIP TO REMOVE</span></div>
@@ -2028,6 +2084,46 @@
         <div class="stat-row" style="border:none"><div class="stat-key">Weakest Dozen</div><div class="stat-val" id="di-weakest">—</div></div>
       </div>
 
+      <!-- Velocity -->
+      <div class="velocity-card" id="velocityCard" style="display:none">
+        <div>
+          <div class="velocity-label">Distortion Velocity</div>
+          <div class="velocity-value" id="vel-value">—</div>
+          <div class="velocity-class" id="vel-class">—</div>
+        </div>
+        <div class="velocity-arrow" id="vel-arrow">→</div>
+      </div>
+
+      <!-- Chi-squared Significance -->
+      <div style="margin-bottom:14px">
+        <div class="section-title">Statistical Significance</div>
+        <div class="stat-row"><div class="stat-key">Chi-squared (χ²)</div><div class="stat-val" id="di-chi">—</div></div>
+        <div class="stat-row"><div class="stat-key">Degrees of freedom</div><div class="stat-val" style="color:var(--text-dim)">2</div></div>
+        <div class="stat-row" style="border:none"><div class="stat-key">Significance</div><div class="stat-val"><span class="sig-badge sig-none" id="di-sig-badge">—</span></div></div>
+      </div>
+
+      <!-- Harmony -->
+      <div class="harmony-card" id="harmonyCard" style="display:none">
+        <div class="velocity-label">Persistence × Index Harmony</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">
+          <span style="font-size:11px;font-weight:500" id="harmony-label">—</span>
+          <span style="font-size:10px;color:var(--text-dim)" id="harmony-score">—</span>
+        </div>
+        <div class="harmony-meter"><div class="harmony-fill" id="harmony-fill" style="width:0%"></div></div>
+        <div class="harmony-label-row"><span>Divergent</span><span>Concordant</span></div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:6px" id="harmony-detail">—</div>
+      </div>
+
+      <!-- Trend Sparkline -->
+      <div class="trend-card" id="trendCard" style="display:none">
+        <div class="velocity-label">Distortion Trend</div>
+        <svg class="trend-sparkline" id="trendSparkline" viewBox="0 0 200 40" preserveAspectRatio="none">
+          <polyline id="trendLine" fill="none" stroke="var(--gold)" stroke-width="1.5" points=""/>
+          <g id="trendDots"></g>
+        </svg>
+        <div class="trend-direction" id="trend-direction">—</div>
+      </div>
+
       <div class="output-box" id="distortionJSON">
         <span style="color:var(--border)">// Awaiting 12+ non-zero spins…</span>
       </div>
@@ -2178,11 +2274,14 @@
         <button class="ai-action-btn" onclick="explainCharts()">
           <span class="btn-icon">◈</span> Explain Trends
         </button>
-        <button class="ai-action-btn primary" onclick="detectAnomalies()">
-          <span class="btn-icon">⚡</span> Detect Anomalies + Recommend
+        <button class="ai-action-btn primary" onclick="detectPatterns()">
+          <span class="btn-icon">⬡</span> Detect Patterns
+        </button>
+        <button class="ai-action-btn" onclick="detectAnomalies()">
+          <span class="btn-icon">⚡</span> Anomalies + Recommend
         </button>
         <button class="ai-action-btn" onclick="getBetAdvice()">
-          <span class="btn-icon">★</span> Get Bet Advice
+          <span class="btn-icon">★</span> Bet Advice
         </button>
         <button class="ai-clear-btn" onclick="clearChat()" title="Clear chat">✕</button>
       </div>
@@ -2191,6 +2290,23 @@
 
     <!-- RIGHT: Live Conditions Dashboard -->
     <div class="ai-side-panel">
+
+      <div class="ai-conditions-card">
+        <div class="acc-header">
+          <span class="acc-header-title">Pattern Detection</span>
+          <div class="live-dot"></div>
+        </div>
+        <div class="acc-body" id="cond-pattern">
+          <div class="acc-row"><span class="acc-key">Status</span><span class="acc-val" id="cp-pat-status">—</span></div>
+          <div class="acc-row"><span class="acc-key">Consensus</span><span class="acc-val" id="cp-pat-consensus" style="color:var(--gold)">—</span></div>
+          <div class="acc-row"><span class="acc-key">Score</span><span class="acc-val" id="cp-pat-score">—</span></div>
+          <div class="acc-row"><span class="acc-key">Spread</span><span class="acc-val" id="cp-pat-spread">—</span></div>
+          <div class="acc-row"><span class="acc-key">Markov →</span><span class="acc-val" id="cp-pat-markov">—</span></div>
+          <div class="acc-row"><span class="acc-key">Cycle</span><span class="acc-val" id="cp-pat-cycle">—</span></div>
+          <div class="acc-row"><span class="acc-key">Streak</span><span class="acc-val" id="cp-pat-streak">—</span></div>
+          <div class="acc-row"><span class="acc-key">Alternation</span><span class="acc-val" id="cp-pat-alt">—</span></div>
+        </div>
+      </div>
 
       <div class="ai-conditions-card">
         <div class="acc-header">
@@ -2233,6 +2349,10 @@
           <div class="acc-row"><span class="acc-key">Frame [D1·D2·D3]</span><span class="acc-val" id="cp-di-frame">—</span></div>
           <div class="acc-row"><span class="acc-key">Dominant</span><span class="acc-val" id="cp-di-dom">—</span></div>
           <div class="acc-row"><span class="acc-key">Weakest</span><span class="acc-val" id="cp-di-weak">—</span></div>
+          <div class="acc-row"><span class="acc-key">Velocity</span><span class="acc-val" id="cp-di-velocity">—</span></div>
+          <div class="acc-row"><span class="acc-key">Significance</span><span class="acc-val" id="cp-di-sig">—</span></div>
+          <div class="acc-row"><span class="acc-key">Harmony</span><span class="acc-val" id="cp-di-harmony">—</span></div>
+          <div class="acc-row"><span class="acc-key">Trend</span><span class="acc-val" id="cp-di-trend">—</span></div>
         </div>
       </div>
 
@@ -2247,6 +2367,23 @@
           <div class="acc-row"><span class="acc-key">Color</span><span class="acc-val" id="cp-color">—</span></div>
           <div class="acc-row"><span class="acc-key">Color Conf.</span><span class="acc-val" id="cp-color-conf">—</span></div>
           <div class="acc-row"><span class="acc-key">Trigger</span><span class="acc-val" id="cp-trigger">—</span></div>
+        </div>
+      </div>
+
+      <div class="ai-conditions-card">
+        <div class="acc-header">
+          <span class="acc-header-title">Learning Database</span>
+          <div class="live-dot"></div>
+        </div>
+        <div class="acc-body" id="cond-learning">
+          <div class="acc-row"><span class="acc-key">Predictions</span><span class="acc-val" id="cp-learn-total">—</span></div>
+          <div class="acc-row"><span class="acc-key">Overall Accuracy</span><span class="acc-val" id="cp-learn-accuracy" style="color:var(--gold)">—</span></div>
+          <div class="acc-row"><span class="acc-key">Recent (last 10)</span><span class="acc-val" id="cp-learn-recent">—</span></div>
+          <div class="acc-row"><span class="acc-key">Best Approach</span><span class="acc-val" id="cp-learn-best">—</span></div>
+          <div class="acc-row"><span class="acc-key">Pattern Engine</span><span class="acc-val" id="cp-learn-pattern">—</span></div>
+          <div class="acc-row"><span class="acc-key">Pending</span><span class="acc-val" id="cp-learn-pending">—</span></div>
+          <div class="acc-row"><span class="acc-key">Sessions</span><span class="acc-val" id="cp-learn-sessions">—</span></div>
+          <div class="acc-row"><span class="acc-key">Memory Turns</span><span class="acc-val" id="cp-learn-memory">—</span></div>
         </div>
       </div>
 
@@ -2266,6 +2403,245 @@ const STORAGE_KEY = 'roulette-analyst-history';
 
 // ─── STATE ──────────────────────────────────────────────────
 let history = loadHistory();
+
+// ══════════════════════════════════════════════════════════════
+// LAYER 2: CONVERSATION MEMORY
+// ══════════════════════════════════════════════════════════════
+// Stores [role, content] pairs sent TO the LLM on every call.
+// Wiped on page reload or clearChat(). NOT persisted to localStorage.
+let aiConversationMemory = [];  // [{role:'user'|'assistant', content:'...'}]
+const MAX_MEMORY_TURNS = 6;     // Keep last 6 exchanges (12 messages)
+
+function recordToMemory(role, content) {
+  const text = typeof content === 'string' ? content : JSON.stringify(content);
+  // Truncate long messages to keep token count manageable
+  const trimmed = text.length > 1500 ? text.slice(0, 1500) + '...[truncated]' : text;
+  aiConversationMemory.push({ role, content: trimmed });
+  // Prune old turns (keep last MAX_MEMORY_TURNS * 2 messages)
+  while (aiConversationMemory.length > MAX_MEMORY_TURNS * 2) {
+    aiConversationMemory.shift();
+  }
+}
+
+function buildMessagesWithMemory(systemPrompt, userPrompt) {
+  const msgs = [{ role: 'system', content: systemPrompt }];
+  // Add prior conversation turns
+  for (const m of aiConversationMemory) {
+    msgs.push({ role: m.role, content: m.content });
+  }
+  // Add current user message
+  msgs.push({ role: 'user', content: userPrompt });
+  return msgs;
+}
+
+// ══════════════════════════════════════════════════════════════
+// LAYER 3: PATTERN DATABASE — Cross-session learning
+// ══════════════════════════════════════════════════════════════
+// Persists to localStorage. Survives page reloads, table changes.
+// Tracks: what we predicted → what actually happened → accuracy.
+const PATTERN_DB_KEY = 'roulette-pattern-db';
+
+function loadPatternDB() {
+  try {
+    const saved = localStorage.getItem(PATTERN_DB_KEY);
+    return saved ? JSON.parse(saved) : { predictions: [], pendingPrediction: null };
+  } catch { return { predictions: [], pendingPrediction: null }; }
+}
+
+function savePatternDB(db) {
+  try { localStorage.setItem(PATTERN_DB_KEY, JSON.stringify(db)); } catch {}
+}
+
+let patternDB = loadPatternDB();
+
+/**
+ * Called BEFORE adding a new spin — scores the previous prediction.
+ * If we had a pending prediction, check if it was correct.
+ */
+function scorePendingPrediction(actualNumber) {
+  if (!patternDB.pendingPrediction) return;
+  const pending = patternDB.pendingPrediction;
+  const actualDozen = actualNumber === 0 ? 'ZERO' : actualNumber <= 12 ? 'D1' : actualNumber <= 24 ? 'D2' : 'D3';
+  const isCorrect = actualDozen === pending.predictedDozen;
+  const isZero = actualNumber === 0;
+
+  patternDB.predictions.push({
+    timestamp: Date.now(),
+    spinNumber: history.length + 1,
+    approach: pending.approach,
+    predictedDozen: pending.predictedDozen,
+    confidence: pending.confidence,
+    actualDozen: actualDozen,
+    actualNumber: actualNumber,
+    correct: isCorrect,
+    skipped: isZero,  // zero doesn't count as wrong
+    patternConsensus: pending.patternConsensus || null,
+    patternScore: pending.patternScore || null
+  });
+
+  // Keep last 200 predictions to prevent unbounded growth
+  if (patternDB.predictions.length > 200) {
+    patternDB.predictions = patternDB.predictions.slice(-200);
+  }
+
+  patternDB.pendingPrediction = null;
+  savePatternDB(patternDB);
+}
+
+/**
+ * Called AFTER renderAll() — captures the current verdict as a pending prediction.
+ */
+function capturePendingPrediction() {
+  const verdict = computeCodedVerdict();
+  if (verdict.approach === 'NO_SIGNAL' || !verdict.recommendDozen) {
+    patternDB.pendingPrediction = null;
+    savePatternDB(patternDB);
+    return;
+  }
+
+  const pat = detectAllPatterns(history);
+  patternDB.pendingPrediction = {
+    timestamp: Date.now(),
+    spinCount: history.length,
+    approach: verdict.approach,
+    predictedDozen: 'D' + verdict.recommendDozen,
+    confidence: verdict.confidence,
+    patternConsensus: pat.ready ? pat.consensus.predictedDozen : null,
+    patternScore: pat.ready ? pat.consensus.score : null
+  };
+  savePatternDB(patternDB);
+}
+
+/**
+ * Generates a learning report from the pattern database.
+ * This is sent to the AI so it knows historical accuracy.
+ */
+function generateLearningReport() {
+  const preds = patternDB.predictions;
+  const scored = preds.filter(p => !p.skipped);
+  if (scored.length < 3) return null;
+
+  const total = scored.length;
+  const correct = scored.filter(p => p.correct).length;
+  const overallAccuracy = parseFloat((correct / total * 100).toFixed(1));
+
+  // Per-approach breakdown
+  const approaches = {};
+  for (const p of scored) {
+    if (!approaches[p.approach]) approaches[p.approach] = { total: 0, correct: 0 };
+    approaches[p.approach].total++;
+    if (p.correct) approaches[p.approach].correct++;
+  }
+  const approachAccuracy = {};
+  for (const [k, v] of Object.entries(approaches)) {
+    approachAccuracy[k] = {
+      total: v.total,
+      correct: v.correct,
+      accuracy: parseFloat((v.correct / v.total * 100).toFixed(1))
+    };
+  }
+
+  // Per-dozen breakdown
+  const dozens = { D1: { total: 0, correct: 0 }, D2: { total: 0, correct: 0 }, D3: { total: 0, correct: 0 } };
+  for (const p of scored) {
+    if (dozens[p.predictedDozen]) {
+      dozens[p.predictedDozen].total++;
+      if (p.correct) dozens[p.predictedDozen].correct++;
+    }
+  }
+  const dozenAccuracy = {};
+  for (const [k, v] of Object.entries(dozens)) {
+    dozenAccuracy[k] = v.total > 0 ? {
+      total: v.total,
+      correct: v.correct,
+      accuracy: parseFloat((v.correct / v.total * 100).toFixed(1))
+    } : null;
+  }
+
+  // Recent trend (last 10)
+  const recent = scored.slice(-10);
+  const recentCorrect = recent.filter(p => p.correct).length;
+  const recentAccuracy = parseFloat((recentCorrect / recent.length * 100).toFixed(1));
+
+  // Best approach
+  let bestApproach = null, bestAccuracy = -1;
+  for (const [k, v] of Object.entries(approachAccuracy)) {
+    if (v.total >= 3 && v.accuracy > bestAccuracy) {
+      bestApproach = k;
+      bestAccuracy = v.accuracy;
+    }
+  }
+
+  // Pattern engine accuracy (when patternConsensus matches actual)
+  const patPreds = scored.filter(p => p.patternConsensus);
+  let patternEngineAccuracy = null;
+  if (patPreds.length >= 3) {
+    const patCorrect = patPreds.filter(p => p.actualDozen === p.patternConsensus).length;
+    patternEngineAccuracy = parseFloat((patCorrect / patPreds.length * 100).toFixed(1));
+  }
+
+  return {
+    totalPredictions: total,
+    overallAccuracy,
+    recentAccuracy,
+    recentWindow: recent.length,
+    approachAccuracy,
+    dozenAccuracy,
+    bestApproach: bestApproach ? { approach: bestApproach, accuracy: bestAccuracy } : null,
+    patternEngineAccuracy,
+    pending: patternDB.pendingPrediction ? {
+      approach: patternDB.pendingPrediction.approach,
+      predictedDozen: patternDB.pendingPrediction.predictedDozen,
+      confidence: patternDB.pendingPrediction.confidence
+    } : null
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// SESSION MANAGER — For when the table resets
+// ══════════════════════════════════════════════════════════════
+const SESSIONS_KEY = 'roulette-sessions-archive';
+
+function startNewSession() {
+  if (!history.length) { showToast('No spins to archive'); return; }
+  if (!confirm(`Archive ${history.length} spins and start fresh?\nLearning database will be kept.`)) return;
+
+  // Archive current session
+  const archive = loadSessionsArchive();
+  archive.push({
+    timestamp: Date.now(),
+    date: new Date().toLocaleString(),
+    spins: [...history],
+    spinCount: history.length,
+    predictions: patternDB.predictions.length
+  });
+  // Keep last 20 sessions
+  while (archive.length > 20) archive.shift();
+  saveSessionsArchive(archive);
+
+  // Reset spins but KEEP pattern database
+  history = [];
+  saveHistory();
+  patternDB.pendingPrediction = null;
+  savePatternDB(patternDB);
+  aiConversationMemory = [];
+  _aiCache = {};
+  chatMessages = [];
+  renderAll();
+  clearChat();
+  showToast(`Archived session. Learning DB: ${patternDB.predictions.length} predictions kept.`);
+}
+
+function loadSessionsArchive() {
+  try {
+    const saved = localStorage.getItem(SESSIONS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch { return []; }
+}
+
+function saveSessionsArchive(archive) {
+  try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(archive)); } catch {}
+}
 
 // ─── PERSISTENCE ────────────────────────────────────────────
 function loadHistory() {
@@ -2366,25 +2742,38 @@ function exportHistory() {
 
 // ─── HISTORY ACTIONS ─────────────────────────────────────────
 function addNumber(n) {
+  // Score the previous prediction before adding new spin
+  scorePendingPrediction(n);
   history.push(n);
   saveHistory();
   _aiCache = {};  // Invalidate AI cache when data changes
   renderAll();
+  // Capture new prediction based on updated state
+  capturePendingPrediction();
   flashWheel(n);
   flashBtn(n);
 }
 
-function addRandom() { addNumber(Math.floor(Math.random() * 37)); }
+function addRandom() {
+  const n = Math.floor(Math.random() * 37);
+  addNumber(n);  // addNumber already handles scoring
+}
 
 function bulkImport() {
   const raw = document.getElementById('bulkInput').value.trim();
   if (!raw) return;
   const nums = raw.split(/[\s,;]+/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 0 && n <= 36);
   if (!nums.length) { showToast('No valid numbers found (0–36)'); return; }
-  nums.forEach(n => history.push(n));
+  // Score & add each spin individually so pattern DB stays accurate
+  nums.forEach(n => {
+    scorePendingPrediction(n);
+    history.push(n);
+  });
   saveHistory();
   _aiCache = {};
   renderAll();
+  // Capture prediction for next incoming spin
+  capturePendingPrediction();
   document.getElementById('bulkInput').value = '';
   showToast(`Imported ${nums.length} spins`);
 }
@@ -2394,7 +2783,12 @@ function undoLast() {
   const removed = history.pop();
   saveHistory();
   _aiCache = {};  // Invalidate AI cache when data changes
+  // Invalidate pending prediction since state changed
+  patternDB.pendingPrediction = null;
+  savePatternDB(patternDB);
   renderAll();
+  // Re-capture prediction based on updated state
+  capturePendingPrediction();
   showToast(`Removed ${removed}`);
 }
 
@@ -2404,6 +2798,8 @@ function clearHistory() {
     history = [];
     saveHistory();
     _aiCache = {};  // Invalidate AI cache when data changes
+    patternDB.pendingPrediction = null;
+    savePatternDB(patternDB);
     renderAll();
     showToast('History cleared');
   }
@@ -2471,7 +2867,10 @@ function removeSpinAt(idx) {
   const removed = history.splice(idx, 1)[0];
   saveHistory();
   _aiCache = {};
+  patternDB.pendingPrediction = null;
+  savePatternDB(patternDB);
   renderAll();
+  capturePendingPrediction();
   showToast(`Removed spin #${idx+1}: ${removed}`);
 }
 
@@ -2655,6 +3054,230 @@ function regimeShiftAnalysis(nz, sensitivity) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// MODULE 3 — Sequential Pattern Detection Engine
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Converts spin history to a dozen sequence string for pattern matching.
+ * Returns array of dozen labels: 'D1', 'D2', 'D3' (zeros excluded).
+ */
+function toDozenSequence(hist) {
+  return hist.filter(x => x !== 0).map(x => x <= 12 ? 'D1' : x <= 24 ? 'D2' : 'D3');
+}
+
+/**
+ * Extracts n-gram frequencies from the dozen sequence.
+ * Returns { ngrams: { 'D1,D2': count, ... }, total: N }
+ */
+function extractNgrams(seq, n) {
+  const ngrams = {};
+  let total = 0;
+  for (let i = 0; i <= seq.length - n; i++) {
+    const key = seq.slice(i, i + n).join(',');
+    ngrams[key] = (ngrams[key] || 0) + 1;
+    total++;
+  }
+  return { ngrams, total };
+}
+
+/**
+ * Detects cycles/repeating patterns of length 2-5 in dozen sequence.
+ * Returns { detected: bool, bestCycle: string[], cycleLength: N, strength: 0-1 }
+ */
+function detectCycles(seq) {
+  if (seq.length < 6) return { detected: false, bestCycle: [], cycleLength: 0, strength: 0 };
+  let bestScore = 0, bestCycle = [], bestLen = 0;
+  for (let len = 2; len <= 5; len++) {
+    if (seq.length < len * 2) continue;
+    const tail = seq.slice(-len * 3);
+    let matches = 0, checks = 0;
+    for (let i = len; i < tail.length; i++) {
+      checks++;
+      if (tail[i] === tail[i - len]) matches++;
+    }
+    const score = checks > 0 ? matches / checks : 0;
+    if (score > bestScore) {
+      bestScore = score;
+      bestCycle = seq.slice(-len);
+      bestLen = len;
+    }
+  }
+  return {
+    detected: bestScore >= 0.5,
+    bestCycle,
+    cycleLength: bestLen,
+    strength: parseFloat(bestScore.toFixed(3))
+  };
+}
+
+/**
+ * Detects alternation patterns (e.g., D1-D2-D1-D2).
+ * Returns { detected: bool, type: string, strength: 0-1 }
+ */
+function detectAlternation(seq) {
+  if (seq.length < 4) return { detected: false, type: 'none', strength: 0 };
+  const tail = seq.slice(-12);
+  let altCount = 0;
+  for (let i = 1; i < tail.length; i++) {
+    if (tail[i] !== tail[i - 1]) altCount++;
+  }
+  const altRate = tail.length > 1 ? altCount / (tail.length - 1) : 0;
+  // Check for strict 2-element alternation
+  let strict2 = 0, strict2checks = 0;
+  for (let i = 2; i < tail.length; i++) {
+    strict2checks++;
+    if (tail[i] === tail[i - 2]) strict2++;
+  }
+  const strict2Rate = strict2checks > 0 ? strict2 / strict2checks : 0;
+  let type = 'none';
+  if (strict2Rate >= 0.7) type = 'strict_binary';
+  else if (altRate >= 0.75) type = 'high_alternation';
+  else if (altRate >= 0.6) type = 'moderate_alternation';
+  return {
+    detected: altRate >= 0.6,
+    type,
+    strength: parseFloat(altRate.toFixed(3)),
+    strict2Rate: parseFloat(strict2Rate.toFixed(3))
+  };
+}
+
+/**
+ * Analyzes streak patterns in dozen sequence.
+ * Returns { currentStreak: { dozen, length }, longestStreak: { dozen, length }, avgStreakLength: N }
+ */
+function analyzeDozenStreaks(seq) {
+  if (seq.length === 0) return { currentStreak: { dozen: '', length: 0 }, longestStreak: { dozen: '', length: 0 }, avgStreakLength: 0 };
+  let streaks = [];
+  let curr = { dozen: seq[0], length: 1 };
+  for (let i = 1; i < seq.length; i++) {
+    if (seq[i] === curr.dozen) {
+      curr.length++;
+    } else {
+      streaks.push({ ...curr });
+      curr = { dozen: seq[i], length: 1 };
+    }
+  }
+  streaks.push({ ...curr });
+  const longest = streaks.reduce((a, b) => b.length > a.length ? b : a, streaks[0]);
+  const avg = streaks.reduce((s, st) => s + st.length, 0) / streaks.length;
+  return {
+    currentStreak: { dozen: curr.dozen, length: curr.length },
+    longestStreak: { dozen: longest.dozen, length: longest.length },
+    avgStreakLength: parseFloat(avg.toFixed(2)),
+    streakCount: streaks.length
+  };
+}
+
+/**
+ * Builds a Markov transition matrix from the dozen sequence.
+ * Returns { matrix: { D1: { D1: p, D2: p, D3: p }, ... }, prediction: 'D1'|'D2'|'D3', confidence: 0-1 }
+ */
+function buildMarkovChain(seq) {
+  const labels = ['D1', 'D2', 'D3'];
+  const transitions = {};
+  labels.forEach(from => {
+    transitions[from] = {};
+    labels.forEach(to => transitions[from][to] = 0);
+  });
+  for (let i = 0; i < seq.length - 1; i++) {
+    transitions[seq[i]][seq[i + 1]]++;
+  }
+  // Normalize to probabilities
+  const matrix = {};
+  labels.forEach(from => {
+    matrix[from] = {};
+    const total = labels.reduce((s, to) => s + transitions[from][to], 0);
+    labels.forEach(to => {
+      matrix[from][to] = total > 0 ? parseFloat((transitions[from][to] / total).toFixed(3)) : 0.333;
+    });
+  });
+  // Predict from last state
+  const lastState = seq[seq.length - 1];
+  const probs = matrix[lastState] || { D1: 0.333, D2: 0.333, D3: 0.333 };
+  const prediction = Object.entries(probs).sort((a, b) => b[1] - a[1])[0][0];
+  const confidence = probs[prediction];
+  return { matrix, prediction, confidence: parseFloat(confidence.toFixed(3)), lastState };
+}
+
+/**
+ * Master function: runs all pattern detectors and produces a consensus prediction.
+ * Returns full pattern analysis object.
+ */
+function detectAllPatterns(hist) {
+  const seq = toDozenSequence(hist);
+  if (seq.length < 8) return { ready: false, reason: `Need 8+ non-zero spins (have ${seq.length})` };
+
+  const bigrams = extractNgrams(seq, 2);
+  const trigrams = extractNgrams(seq, 3);
+  const cycles = detectCycles(seq);
+  const alternation = detectAlternation(seq);
+  const streaks = analyzeDozenStreaks(seq);
+  const markov = buildMarkovChain(seq);
+
+  // ── Consensus: weight each signal ──
+  const votes = { D1: 0, D2: 0, D3: 0 };
+  const weights = { markov: 3, bigram: 2, cycle: 2, streak: 1, alternation: 1 };
+
+  // Markov vote
+  votes[markov.prediction] += weights.markov * markov.confidence;
+
+  // Bigram: most common bigram starting with last dozen → predict next
+  const lastDozen = seq[seq.length - 1];
+  ['D1', 'D2', 'D3'].forEach(d => {
+    const key = lastDozen + ',' + d;
+    const count = bigrams.ngrams[key] || 0;
+    if (bigrams.total > 0) {
+      votes[d] += weights.bigram * (count / bigrams.total) * 3;
+    }
+  });
+
+  // Cycle vote: if cycle detected, predict next position
+  if (cycles.detected && cycles.bestCycle.length > 0) {
+    const nextPos = seq.length % cycles.cycleLength;
+    const predicted = cycles.bestCycle[nextPos] || cycles.bestCycle[0];
+    votes[predicted] += weights.cycle * cycles.strength;
+  }
+
+  // Streak vote: if current streak is long (≥3), momentum
+  if (streaks.currentStreak.length >= 3) {
+    votes[streaks.currentStreak.dozen] += weights.streak * 0.6;
+  }
+
+  // Alternation vote: predict the one NOT equal to last
+  if (alternation.detected && alternation.type === 'strict_binary' && seq.length >= 3) {
+    const predicted = seq[seq.length - 2]; // strict binary → next = two-back
+    votes[predicted] += weights.alternation * alternation.strength;
+  }
+
+  // Find consensus
+  const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+  const totalWeight = sorted.reduce((s, [, v]) => s + v, 0);
+  const consensusDozen = sorted[0][0];
+  const consensusScore = totalWeight > 0 ? parseFloat((sorted[0][1] / totalWeight).toFixed(3)) : 0.333;
+  const spread = totalWeight > 0 ? parseFloat(((sorted[0][1] - sorted[1][1]) / totalWeight).toFixed(3)) : 0;
+
+  return {
+    ready: true,
+    sequenceLength: seq.length,
+    lastDozen,
+    ngrams: {
+      bigrams: { top5: Object.entries(bigrams.ngrams).sort((a,b) => b[1]-a[1]).slice(0,5).map(([k,v]) => ({pattern: k, count: v})), total: bigrams.total },
+      trigrams: { top5: Object.entries(trigrams.ngrams).sort((a,b) => b[1]-a[1]).slice(0,5).map(([k,v]) => ({pattern: k, count: v})), total: trigrams.total }
+    },
+    cycles,
+    alternation,
+    streaks,
+    markov: { prediction: markov.prediction, confidence: markov.confidence, lastState: markov.lastState, matrix: markov.matrix },
+    consensus: {
+      predictedDozen: consensusDozen,
+      score: consensusScore,
+      spread,
+      allVotes: { D1: parseFloat(votes.D1.toFixed(3)), D2: parseFloat(votes.D2.toFixed(3)), D3: parseFloat(votes.D3.toFixed(3)) }
+    }
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
 // MODULE 2 — Distortion Index (12-spin frame, 0–10)
 // ══════════════════════════════════════════════════════════════
 
@@ -2688,11 +3311,138 @@ function distortionIndex(hist) {
   };
 }
 
+/**
+ * Computes a raw DI value for any frame of non-zero spins.
+ * Lightweight helper for velocity / trend calculations.
+ */
+function computeFrameDI(frame) {
+  const { d1, d2, d3 } = countDozens(frame);
+  const expected = frame.length / 3;
+  const deviation = Math.abs(d1 - expected) + Math.abs(d2 - expected) + Math.abs(d3 - expected);
+  return parseFloat(((deviation / frame.length) * 10).toFixed(2));
+}
+
+/**
+ * Distortion Velocity — rate of change between two consecutive 12-spin frames.
+ * Positive velocity = distortion increasing;  Negative = correcting.
+ * Requires 24+ non-zero spins.
+ */
+function distortionVelocity(hist) {
+  const nonZero = getNonZeroSpins(hist);
+  if (nonZero.length < 24) return null;
+  const currentFrame = nonZero.slice(-12);
+  const prevFrame    = nonZero.slice(-24, -12);
+  const currentDI = computeFrameDI(currentFrame);
+  const prevDI    = computeFrameDI(prevFrame);
+  const velocity  = parseFloat((currentDI - prevDI).toFixed(2));
+  let classification;
+  if (velocity > 1.5)       classification = 'ACCELERATING';
+  else if (velocity > 0.3)  classification = 'INCREASING';
+  else if (velocity >= -0.3) classification = 'STABLE';
+  else if (velocity >= -1.5) classification = 'DECREASING';
+  else                       classification = 'CORRECTING';
+  return {
+    currentDI, prevDI, velocity, classification,
+    isAccelerating: velocity > 1.5,
+    isIncreasing:   velocity > 0.3,
+    isStable:       Math.abs(velocity) <= 0.3,
+    isDecreasing:   velocity < -0.3,
+    isCorrecting:   velocity < -1.5
+  };
+}
+
+/**
+ * Chi-squared significance test for dozen distribution in a 12-spin frame.
+ * df = 2.  χ² > 5.991 → p < 0.05 (significant).
+ */
+function distortionSignificance(hist) {
+  const nonZero = getNonZeroSpins(hist);
+  if (nonZero.length < 12) return null;
+  const frame = nonZero.slice(-12);
+  const { d1, d2, d3 } = countDozens(frame);
+  const expected = 4;
+  const chiSq = parseFloat((((d1-expected)**2 + (d2-expected)**2 + (d3-expected)**2) / expected).toFixed(3));
+  let pCategory;
+  if (chiSq > 5.991)       pCategory = 'SIGNIFICANT';
+  else if (chiSq > 4.605)  pCategory = 'MARGINAL';
+  else if (chiSq > 2.773)  pCategory = 'WEAK';
+  else                      pCategory = 'NOT_SIGNIFICANT';
+  return { chiSquared: chiSq, degreesOfFreedom: 2, pCategory, isSignificant: chiSq > 5.991 };
+}
+
+/**
+ * Harmony between Distortion Persistence and Distortion Index.
+ * Checks whether the two modules agree on signal direction and dominant dozen.
+ * Returns a harmony label + 0–1 score.
+ */
+function distortionHarmony(hist, sensitivity, signalMode) {
+  const persResult = distortionPersistence(hist, sensitivity, signalMode);
+  const diResult   = distortionIndex(hist);
+  if (!persResult || !diResult) return null;
+  const persActive  = persResult.active;
+  const diHigh      = diResult.distortionIndex > 6;
+  const diModerate  = diResult.distortionIndex > 3;
+  const dm = persResult.metrics13 || persResult.metricsCurr;
+  const persDom = dm.counts.indexOf(Math.max(...dm.counts)) + 1;
+  const dozenAgreement = persDom === diResult.dominantDozen;
+  let harmony, score;
+  if (persActive && diHigh) {
+    harmony = 'CONCORDANT_STRONG'; score = dozenAgreement ? 1.0 : 0.7;
+  } else if (persActive && diModerate) {
+    harmony = 'CONCORDANT_MODERATE'; score = dozenAgreement ? 0.8 : 0.5;
+  } else if (persActive && !diModerate) {
+    harmony = 'DIVERGENT_PERSISTENCE'; score = 0.3;
+  } else if (!persActive && diHigh) {
+    harmony = 'DIVERGENT_INDEX'; score = 0.3;
+  } else if (!persActive && diModerate) {
+    harmony = 'QUIET_LEANING'; score = 0.2;
+  } else {
+    harmony = 'QUIET'; score = 0.0;
+  }
+  return {
+    harmony, score: parseFloat(score.toFixed(2)),
+    dozenAgreement, persistenceActive: persActive,
+    diLevel: diResult.distortionLevel,
+    persistenceGrade: persResult.grade,
+    dominantDozenPersistence: persDom,
+    dominantDozenIndex: diResult.dominantDozen
+  };
+}
+
+/**
+ * Distortion Trend — sliding-window DI over up to 6 historical points (step = 6 spins).
+ * Computes linear regression slope and direction label. Produces sparkline data.
+ */
+function distortionTrend(hist) {
+  const nonZero = getNonZeroSpins(hist);
+  const points = [];
+  for (let offset = 0; offset <= nonZero.length - 12; offset += 6) {
+    const frame = nonZero.slice(nonZero.length - 12 - offset, nonZero.length - offset);
+    if (frame.length < 12) break;
+    const di = computeFrameDI(frame);
+    points.unshift({ offset, di });
+    if (points.length >= 6) break;
+  }
+  if (points.length < 2) return null;
+  // Linear regression: y = a + b*x
+  const n = points.length;
+  const xs = points.map((_, i) => i);
+  const ys = points.map(p => p.di);
+  const sumX  = xs.reduce((a,b) => a+b, 0);
+  const sumY  = ys.reduce((a,b) => a+b, 0);
+  const sumXY = xs.reduce((s, x, i) => s + x * ys[i], 0);
+  const sumX2 = xs.reduce((s, x) => s + x*x, 0);
+  const denom = n * sumX2 - sumX * sumX;
+  const slope = denom !== 0 ? parseFloat(((n * sumXY - sumX * sumY) / denom).toFixed(3)) : 0;
+  const trendDirection = slope > 0.3 ? 'RISING' : slope < -0.3 ? 'FALLING' : 'FLAT';
+  return { points, slope, trendDirection };
+}
+
 // ──────────────────────────────────────────────────────────────
 // PATTERN TAB — analyze
 // ──────────────────────────────────────────────────────────────
 function calcEntropy(probs) {
-  return -probs.reduce((s, p) => s + (p > 0 ? p * Math.log(p + 1e-9) : 0), 0);
+  return -probs.reduce((s, p) => s + (p > 0 ? p * Math.log(p) : 0), 0);
 }
 
 function analyzePattern() {
@@ -3023,6 +3773,12 @@ function analyzeDistortionIndex() {
     ['db1','db2','db3','devbar1','devbar2','devbar3'].forEach(id => document.getElementById(id).style.width = '0%');
     ['dbp1','dbp2','dbp3','devbarp1','devbarp2','devbarp3'].forEach(id => document.getElementById(id).textContent = '—');
     ['dev1-label','dev2-label','dev3-label'].forEach(id => document.getElementById(id).textContent = '');
+    // Reset new distortion dimensions
+    ['vel-value','vel-class','vel-arrow','di-chi','harmony-label','harmony-score','harmony-detail','trend-direction'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '—'; });
+    const sigBadgeR = document.getElementById('di-sig-badge'); if (sigBadgeR) { sigBadgeR.textContent = '—'; sigBadgeR.className = 'sig-badge sig-none'; }
+    const hfillR = document.getElementById('harmony-fill'); if (hfillR) hfillR.style.width = '0%';
+    const tLineR = document.getElementById('trendLine'); if (tLineR) tLineR.setAttribute('points', '');
+    const tDotsR = document.getElementById('trendDots'); if (tDotsR) tDotsR.innerHTML = '';
     document.getElementById('distortionJSON').innerHTML = '<span style="color:var(--border)">// Awaiting 12+ non-zero spins…</span>';
     return;
   }
@@ -3109,6 +3865,83 @@ function analyzeDistortionIndex() {
 &nbsp;&nbsp;<span class="key">dominantDozen</span>: <span style="color:${DOZEN_COLORS[result.dominantDozen]}">D${result.dominantDozen}</span>,<br>
 &nbsp;&nbsp;<span class="key">weakestDozen</span>: <span class="val-n">D${result.weakestDozen}</span><br>
 }`;
+
+  // ── Velocity card ──
+  const vel = distortionVelocity(history);
+  const velValEl = document.getElementById('vel-value');
+  const velClsEl = document.getElementById('vel-class');
+  const velArrEl = document.getElementById('vel-arrow');
+  if (vel) {
+    velValEl.textContent = (vel.velocity > 0 ? '+' : '') + vel.velocity.toFixed(2);
+    const velColorMap = { ACCELERATING:'var(--red-light)', INCREASING:'var(--gold)', STABLE:'var(--text-dim)', DECREASING:'var(--green-light)', CORRECTING:'var(--green-light)' };
+    velValEl.style.color = velColorMap[vel.classification] || 'var(--text-dim)';
+    velClsEl.textContent = vel.classification;
+    velClsEl.style.color = velColorMap[vel.classification] || 'var(--text-dim)';
+    const arrowMap = { ACCELERATING:'⇈', INCREASING:'↑', STABLE:'→', DECREASING:'↓', CORRECTING:'⇊' };
+    velArrEl.textContent = arrowMap[vel.classification] || '→';
+    velArrEl.style.color = velColorMap[vel.classification] || 'var(--text-dim)';
+  } else {
+    velValEl.textContent = '—'; velClsEl.textContent = 'Need 24+ spins'; velArrEl.textContent = '→';
+  }
+
+  // ── Significance card ──
+  const sig = distortionSignificance(history);
+  const chiEl   = document.getElementById('di-chi');
+  const sigBdg  = document.getElementById('di-sig-badge');
+  if (sig) {
+    chiEl.textContent = sig.chiSquared.toFixed(3);
+    const sigClsMap = { SIGNIFICANT:'sig-high', MARGINAL:'sig-marginal', WEAK:'sig-weak', NOT_SIGNIFICANT:'sig-none' };
+    sigBdg.textContent = sig.pCategory.replace('_',' ');
+    sigBdg.className = 'sig-badge ' + (sigClsMap[sig.pCategory] || 'sig-none');
+  } else {
+    chiEl.textContent = '—'; sigBdg.textContent = '—'; sigBdg.className = 'sig-badge sig-none';
+  }
+
+  // ── Harmony card ──
+  const sens = document.getElementById('sensitivity') ? document.getElementById('sensitivity').value : 'reliable';
+  const mode = document.getElementById('signalMode') ? document.getElementById('signalMode').value : 'twowindow';
+  const harm = distortionHarmony(history, sens, mode);
+  const harmLabel  = document.getElementById('harmony-label');
+  const harmScore  = document.getElementById('harmony-score');
+  const harmFill   = document.getElementById('harmony-fill');
+  const harmDetail = document.getElementById('harmony-detail');
+  if (harm) {
+    harmLabel.textContent = harm.harmony.replace(/_/g, ' ');
+    const harmColorMap = { CONCORDANT_STRONG:'var(--green-light)', CONCORDANT_MODERATE:'var(--gold)', DIVERGENT_PERSISTENCE:'var(--red-light)', DIVERGENT_INDEX:'var(--red-light)', QUIET_LEANING:'var(--text-dim)', QUIET:'var(--text-dim)' };
+    harmLabel.style.color = harmColorMap[harm.harmony] || 'var(--text-dim)';
+    harmScore.textContent = `Score: ${(harm.score * 100).toFixed(0)}%`;
+    harmFill.style.width = (harm.score * 100) + '%';
+    harmFill.style.background = harmColorMap[harm.harmony] || 'var(--text-dim)';
+    const agreeText = harm.dozenAgreement ? `Both point to D${harm.dominantDozenPersistence}` : `Pers→D${harm.dominantDozenPersistence}, Idx→D${harm.dominantDozenIndex}`;
+    harmDetail.textContent = agreeText;
+  } else {
+    harmLabel.textContent = '—'; harmScore.textContent = '—';
+    harmFill.style.width = '0%'; harmDetail.textContent = '—';
+  }
+
+  // ── Trend sparkline ──
+  const trend = distortionTrend(history);
+  const tLine = document.getElementById('trendLine');
+  const tDots = document.getElementById('trendDots');
+  const tDir  = document.getElementById('trend-direction');
+  if (trend && trend.points.length >= 2) {
+    const pts = trend.points;
+    const maxDI = Math.max(...pts.map(p => p.di), 1);
+    const w = 200, h = 40, pad = 4;
+    const coords = pts.map((p, i) => {
+      const x = pad + (i / (pts.length - 1)) * (w - 2 * pad);
+      const y = h - pad - (p.di / maxDI) * (h - 2 * pad);
+      return { x, y };
+    });
+    tLine.setAttribute('points', coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' '));
+    tDots.innerHTML = coords.map(c => `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="2.5" fill="var(--gold)"/>`).join('');
+    const dirColor = trend.trendDirection === 'RISING' ? 'var(--red-light)' : trend.trendDirection === 'FALLING' ? 'var(--green-light)' : 'var(--text-dim)';
+    tDir.textContent = `${trend.trendDirection} (slope: ${trend.slope > 0 ? '+' : ''}${trend.slope.toFixed(3)})`;
+    tDir.style.color = dirColor;
+  } else {
+    tLine.setAttribute('points', ''); tDots.innerHTML = '';
+    tDir.textContent = 'Need more data'; tDir.style.color = 'var(--text-dim)';
+  }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -3146,6 +3979,10 @@ function computeCodedVerdict() {
   const diResult = distortionIndex(history);
   const diVal = diResult ? diResult.distortionIndex : 0;
 
+  // Distortion Velocity & Significance
+  const velResult = distortionVelocity(history);
+  const sigResult = distortionSignificance(history);
+
   // Entropy Analysis
   const last36 = history.slice(-36);
   const nzLast36 = last36.filter(x => x !== 0);
@@ -3172,13 +4009,80 @@ function computeCodedVerdict() {
     } else if (ent < 1.05 && dom > 0.03) {
       patternConfidence = Math.min(60, 35 + dom * 80);
     } else if (entropyNorm < 0.98 && dom > 0.02) {
-      // Mild lean: entropy is slightly below perfect randomness
       patternConfidence = Math.min(35, 15 + dom * 60);
     }
   }
 
+  // ── Pattern Detection Engine ──
+  const patResult = detectAllPatterns(history);
+  let patternBonus = 0;          // bonus added to confidence when patterns corroborate
+  let patternSummary = [];       // human-readable signal list for trigger text
+  let patConsensusDoz = null;    // 1,2,3 if consensus is strong
+  let patConsensusScore = 0;
+
+  if (patResult && patResult.ready) {
+    const c = patResult.consensus;
+    const dozenNumFromLabel = d => d === 'D1' ? 1 : d === 'D2' ? 2 : 3;
+    patConsensusDoz = dozenNumFromLabel(c.predictedDozen);
+    patConsensusScore = c.score;
+
+    // Markov
+    if (patResult.markov.confidence >= 0.4) {
+      patternSummary.push(`Markov predicts ${patResult.markov.prediction} (${(patResult.markov.confidence*100).toFixed(0)}%)`);
+    }
+    // Bigrams / trigrams
+    if (patResult.ngrams.bigrams.top5.length > 0) {
+      const topBi = patResult.ngrams.bigrams.top5[0];
+      patternSummary.push(`Bigrams suggest ${topBi.pattern.split(',')[1]} (top pair ${topBi.pattern} ×${topBi.count})`);
+    }
+    if (patResult.ngrams.trigrams.top5.length > 0) {
+      const topTri = patResult.ngrams.trigrams.top5[0];
+      patternSummary.push(`Trigrams suggest ${topTri.pattern.split(',').pop()} (top triple ${topTri.pattern} ×${topTri.count})`);
+    }
+    // Cycles
+    if (patResult.cycles.detected) {
+      const nextPos = patResult.sequenceLength % patResult.cycles.cycleLength;
+      const cyclePred = patResult.cycles.bestCycle[nextPos] || patResult.cycles.bestCycle[0];
+      patternSummary.push(`Cycle detection indicates ${cyclePred} (len ${patResult.cycles.cycleLength}, strength ${(patResult.cycles.strength*100).toFixed(0)}%)`);
+    }
+    // Streaks
+    if (patResult.streaks.currentStreak.length >= 2) {
+      patternSummary.push(`Streaks point to ${patResult.streaks.currentStreak.dozen} (×${patResult.streaks.currentStreak.length} active)`);
+    }
+    // Alternation
+    if (patResult.alternation.detected) {
+      const altPred = patResult.sequenceLength >= 3 ? toDozenSequence(history).slice(-2)[0] : c.predictedDozen;
+      patternSummary.push(`Alternation suggests ${altPred} (${patResult.alternation.type}, ${(patResult.alternation.strength*100).toFixed(0)}%)`);
+    }
+
+    // Consensus quality bonus
+    if (c.score >= 0.50 && c.spread >= 0.15) {
+      patternBonus = 12;  // strong consensus
+    } else if (c.score >= 0.42 && c.spread >= 0.08) {
+      patternBonus = 7;   // moderate consensus
+    } else if (c.score >= 0.38) {
+      patternBonus = 3;   // mild lean
+    }
+    patternSummary.push(`Consensus predicts ${c.predictedDozen} (score ${(c.score*100).toFixed(1)}%, spread ${(c.spread*100).toFixed(1)}%)`);
+  }
+
   // diBonus
   const diBonus = diVal > 6 ? 15 : diVal > 3 ? 8 : 0;
+
+  // Velocity bonus: accelerating distortion boosts MOMENTUM, correcting boosts MEAN_REVERSION
+  const velBonus = velResult ? (velResult.isAccelerating ? 8 : velResult.isIncreasing ? 4 : velResult.isCorrecting ? 6 : velResult.isDecreasing ? 3 : 0) : 0;
+
+  // Significance bonus
+  const sigBonus = sigResult ? (sigResult.isSignificant ? 10 : sigResult.pCategory === 'MARGINAL' ? 5 : 0) : 0;
+
+  // Helper: build rich trigger string with pattern signals appended
+  const triggerWithPatterns = (base) => {
+    if (patternSummary.length === 0) return base;
+    return base + ' Pattern Engine: ' + patternSummary.join('; ') + '.';
+  };
+
+  // Helper: check if pattern consensus agrees with a specific dozen (1-based)
+  const patternAgreesWithDozen = (doz) => patConsensusDoz === doz && patConsensusScore >= 0.38;
 
   // Decision Tree (priority order)
   const dozenLabels = ['Dozen 1 (1-12)', 'Dozen 2 (13-24)', 'Dozen 3 (25-36)'];
@@ -3187,38 +4091,60 @@ function computeCodedVerdict() {
     // MOMENTUM: signal active -> follow dominant dozen
     const dm = persResult.metrics13 || persResult.metricsCurr;
     const domIdx = dm.counts.indexOf(Math.max(...dm.counts));
-    const rawConf = patternConfidence + diBonus;
+    const velMomentumBonus = velResult && (velResult.isAccelerating || velResult.isIncreasing) ? velBonus : 0;
+    const patAgreed = patternAgreesWithDozen(domIdx + 1);
+    const rawConf = patternConfidence + diBonus + (patAgreed ? patternBonus : 0) + velMomentumBonus + sigBonus;
     const confidence = Math.max(rawConf, 40);
     verdict.approach = 'MOMENTUM';
     verdict.recommendDozen = domIdx + 1;
     verdict.recommendDozenLabel = dozenLabels[domIdx];
     verdict.confidence = Math.min(Math.round(confidence), 95);
-    verdict.trigger = `Persistence signal ACTIVE (${persResult.mode}/${sensitivity}), gap=${dm.gap}, grade=${persResult.grade}. Follow dominant D${domIdx + 1}.`;
+    verdict.trigger = triggerWithPatterns(`Persistence signal ACTIVE (${persResult.mode}/${sensitivity}), gap=${dm.gap}, grade=${persResult.grade}. Follow dominant D${domIdx + 1}.${patAgreed ? ' ✓ Pattern consensus agrees.' : ''}${velResult ? ` Velocity: ${velResult.classification} (${velResult.velocity > 0 ? '+' : ''}${velResult.velocity}).` : ''}`);
   } else if (diResult && diVal > 6) {
     // MEAN_REVERSION: signal inactive but DI > 6 -> follow weakest dozen
     const weakIdx = diResult.weakestDozen - 1;
-    const rawConf = patternConfidence + diBonus;
+    const velReversionBonus = velResult && (velResult.isCorrecting || velResult.isDecreasing) ? velBonus : 0;
+    const patAgreed = patternAgreesWithDozen(weakIdx + 1);
+    const rawConf = patternConfidence + diBonus + (patAgreed ? patternBonus : 0) + velReversionBonus + sigBonus;
     verdict.approach = 'MEAN_REVERSION';
     verdict.recommendDozen = weakIdx + 1;
     verdict.recommendDozenLabel = dozenLabels[weakIdx];
     verdict.confidence = Math.min(Math.round(Math.max(rawConf, 30)), 80);
-    verdict.trigger = `Signal inactive, DI=${diVal.toFixed(2)} > 6 (HIGH). Mean-reversion toward weakest D${weakIdx + 1}.`;
+    verdict.trigger = triggerWithPatterns(`Signal inactive, DI=${diVal.toFixed(2)} > 6 (HIGH). Mean-reversion toward weakest D${weakIdx + 1}.${patAgreed ? ' ✓ Pattern consensus agrees.' : ''}${sigResult && sigResult.isSignificant ? ' χ² significant.' : ''}`);
+  } else if (patConsensusDoz && patConsensusScore >= 0.50 && patResult.consensus.spread >= 0.12) {
+    // PATTERN_CONSENSUS: strong pattern signal even without distortion trigger
+    const rawConf = 25 + patternBonus + diBonus + sigBonus;
+    verdict.approach = 'PATTERN_CONSENSUS';
+    verdict.recommendDozen = patConsensusDoz;
+    verdict.recommendDozenLabel = dozenLabels[patConsensusDoz - 1];
+    verdict.confidence = Math.min(Math.round(rawConf), 65);
+    verdict.trigger = triggerWithPatterns(`No primary distortion trigger, but pattern engine strongly favors D${patConsensusDoz}.`);
   } else if (patternConfidence > 0 && biasedDozenIdx >= 0) {
-    // ENTROPY_BIAS: pattern detected
-    const rawConf = patternConfidence + diBonus;
+    // ENTROPY_BIAS: pattern detected via entropy
+    const patAgreed = patternAgreesWithDozen(biasedDozenIdx + 1);
+    const rawConf = patternConfidence + diBonus + (patAgreed ? patternBonus : 0);
     verdict.approach = 'ENTROPY_BIAS';
     verdict.recommendDozen = biasedDozenIdx + 1;
     verdict.recommendDozenLabel = dozenLabels[biasedDozenIdx];
     verdict.confidence = Math.min(Math.round(rawConf), 70);
-    verdict.trigger = `Entropy pattern detected (Hnorm=${entropyNorm.toFixed(3)}), patternConf=${patternConfidence.toFixed(1)}%. Biased toward D${biasedDozenIdx + 1}.`;
+    verdict.trigger = triggerWithPatterns(`Entropy pattern detected (Hnorm=${entropyNorm.toFixed(3)}), patternConf=${patternConfidence.toFixed(1)}%. Biased toward D${biasedDozenIdx + 1}.${patAgreed ? ' ✓ Pattern consensus agrees.' : ''}`);
   } else if (diResult && diVal > 3) {
     // DI_MODERATE: moderate distortion (3-6) — lean toward weakest dozen
     const weakIdx = diResult.weakestDozen - 1;
+    const patAgreed = patternAgreesWithDozen(weakIdx + 1);
     verdict.approach = 'DI_MODERATE';
     verdict.recommendDozen = weakIdx + 1;
     verdict.recommendDozenLabel = dozenLabels[weakIdx];
-    verdict.confidence = Math.min(Math.round(15 + diVal * 3), 40);
-    verdict.trigger = `DI=${diVal.toFixed(2)} (moderate distortion). Mild lean toward underrepresented D${weakIdx + 1}.`;
+    verdict.confidence = Math.min(Math.round(15 + diVal * 3 + (patAgreed ? patternBonus : 0)), 50);
+    verdict.trigger = triggerWithPatterns(`DI=${diVal.toFixed(2)} (moderate distortion). Mild lean toward underrepresented D${weakIdx + 1}.${patAgreed ? ' ✓ Pattern consensus agrees.' : ''}`);
+  } else if (patConsensusDoz && patConsensusScore >= 0.42 && patResult.consensus.spread >= 0.05) {
+    // PATTERN_LEAN: moderate pattern signal, no distortion or entropy trigger
+    const rawConf = 10 + patternBonus + diBonus;
+    verdict.approach = 'PATTERN_LEAN';
+    verdict.recommendDozen = patConsensusDoz;
+    verdict.recommendDozenLabel = dozenLabels[patConsensusDoz - 1];
+    verdict.confidence = Math.min(Math.round(rawConf), 40);
+    verdict.trigger = triggerWithPatterns(`No distortion trigger, but moderate pattern engine lean toward D${patConsensusDoz}.`);
   } else if (biasedDozenIdx >= 0 && nzLast36.length >= 10) {
     // DISTRIBUTION_LEAN: no formal entropy/DI trigger but dominant dozen > 38% share
     const probs36 = [];
@@ -3232,24 +4158,25 @@ function computeCodedVerdict() {
     const weakShare = probs36[weakIdx36];
     const imbalance = domShare - weakShare;
     if (domShare >= 0.38) {
+      const patAgreed = patternAgreesWithDozen(domIdx36 + 1);
       verdict.approach = 'DISTRIBUTION_LEAN';
       verdict.recommendDozen = domIdx36 + 1;
       verdict.recommendDozenLabel = dozenLabels[domIdx36];
-      verdict.confidence = Math.min(Math.round(10 + imbalance * 100), 35);
-      verdict.trigger = `Dozen distribution lean: D${domIdx36+1} at ${(domShare*100).toFixed(1)}% vs expected 33.3% (spread: ${(imbalance*100).toFixed(1)}%). Mild suggestion.`;
+      verdict.confidence = Math.min(Math.round(10 + imbalance * 100 + (patAgreed ? patternBonus : 0)), 40);
+      verdict.trigger = triggerWithPatterns(`Dozen distribution lean: D${domIdx36+1} at ${(domShare*100).toFixed(1)}% vs expected 33.3% (spread: ${(imbalance*100).toFixed(1)}%).${patAgreed ? ' ✓ Pattern consensus agrees.' : ''}`);
     } else {
       verdict.approach = 'NO_SIGNAL';
       verdict.recommendDozen = null;
       verdict.recommendDozenLabel = 'No bet recommended';
       verdict.confidence = 0;
-      verdict.trigger = `Distribution balanced. D-max ${(domShare*100).toFixed(1)}% (need ≥38%). No actionable lean.`;
+      verdict.trigger = triggerWithPatterns(`Distribution balanced. D-max ${(domShare*100).toFixed(1)}% (need ≥38%). No actionable lean.`);
     }
   } else {
     verdict.approach = 'NO_SIGNAL';
     verdict.recommendDozen = null;
     verdict.recommendDozenLabel = 'No bet recommended';
     verdict.confidence = 0;
-    verdict.trigger = 'No distortion signal, DI not high, no entropy pattern. Distribution appears random.';
+    verdict.trigger = triggerWithPatterns('No distortion signal, DI not high, no entropy/pattern trigger. Distribution appears random.');
   }
 
   // ── Color Analysis ──
@@ -3322,11 +4249,28 @@ function computeCodedVerdict() {
   verdict.details = {
     patternConfidence: parseFloat(patternConfidence.toFixed(1)),
     diBonus,
+    patternBonus,
+    velBonus,
+    sigBonus,
     diVal: parseFloat(diVal.toFixed(2)),
     entropyNorm: parseFloat(entropyNorm.toFixed(4)),
     signalActive: persResult ? persResult.active : false,
     signalMode,
     sensitivity,
+    velocity: velResult ? { velocity: velResult.velocity, classification: velResult.classification } : null,
+    significance: sigResult ? { chiSquared: sigResult.chiSquared, pCategory: sigResult.pCategory } : null,
+    patternEngine: patResult && patResult.ready ? {
+      consensusDozen: patResult.consensus.predictedDozen,
+      consensusScore: patResult.consensus.score,
+      consensusSpread: patResult.consensus.spread,
+      markovPrediction: patResult.markov.prediction,
+      markovConfidence: patResult.markov.confidence,
+      cycleDetected: patResult.cycles.detected,
+      alternationDetected: patResult.alternation.detected,
+      currentStreak: patResult.streaks.currentStreak,
+      signalCount: patternSummary.length,
+      signals: patternSummary
+    } : null,
     colorStats: {
       redCount: colorRedCount,
       blackCount: colorBlackCount,
@@ -3550,6 +4494,76 @@ function generateMetricsPayload() {
     jsConditions.JS_CONDITION_dominantColorIsBlack = cs.dominantColor === 'BLACK';
   }
 
+  // ── Distortion Velocity, Significance, Harmony, Trend ──
+  const velResult = distortionVelocity(history);
+  let velocityData = null;
+  if (velResult) {
+    velocityData = {
+      currentDI: velResult.currentDI, prevDI: velResult.prevDI,
+      velocity: velResult.velocity, classification: velResult.classification
+    };
+    jsConditions.JS_CONDITION_velocityAccelerating = velResult.isAccelerating;
+    jsConditions.JS_CONDITION_velocityIncreasing = velResult.isIncreasing;
+    jsConditions.JS_CONDITION_velocityStable = velResult.isStable;
+    jsConditions.JS_CONDITION_velocityDecreasing = velResult.isDecreasing;
+    jsConditions.JS_CONDITION_velocityCorrecting = velResult.isCorrecting;
+  }
+  const sigResult = distortionSignificance(history);
+  let significanceData = null;
+  if (sigResult) {
+    significanceData = {
+      chiSquared: sigResult.chiSquared, pCategory: sigResult.pCategory,
+      isSignificant: sigResult.isSignificant
+    };
+    jsConditions.JS_CONDITION_chiSquaredSignificant = sigResult.isSignificant;
+    jsConditions.JS_CONDITION_chiSquaredMarginal = sigResult.pCategory === 'MARGINAL';
+  }
+  const harmResult = distortionHarmony(history, sensitivity, signalMode);
+  let harmonyData = null;
+  if (harmResult) {
+    harmonyData = {
+      harmony: harmResult.harmony, score: harmResult.score,
+      dozenAgreement: harmResult.dozenAgreement
+    };
+    jsConditions.JS_CONDITION_harmonyConcordant = harmResult.harmony.startsWith('CONCORDANT');
+    jsConditions.JS_CONDITION_harmonyDivergent = harmResult.harmony.startsWith('DIVERGENT');
+  }
+  const trendResult = distortionTrend(history);
+  let trendData = null;
+  if (trendResult) {
+    trendData = {
+      slope: trendResult.slope, direction: trendResult.trendDirection,
+      dataPoints: trendResult.points.length
+    };
+    jsConditions.JS_CONDITION_trendRising = trendResult.trendDirection === 'RISING';
+    jsConditions.JS_CONDITION_trendFalling = trendResult.trendDirection === 'FALLING';
+  }
+
+  // ── Pattern Engine conditions ──
+  const patResult = detectAllPatterns(history);
+  let patternEngineData = null;
+  if (patResult && patResult.ready) {
+    const c = patResult.consensus;
+    patternEngineData = {
+      consensusDozen: c.predictedDozen,
+      consensusScore: c.score,
+      consensusSpread: c.spread,
+      allVotes: c.allVotes,
+      markov: { prediction: patResult.markov.prediction, confidence: patResult.markov.confidence },
+      cycles: { detected: patResult.cycles.detected, cycleLength: patResult.cycles.cycleLength, strength: patResult.cycles.strength },
+      alternation: { detected: patResult.alternation.detected, type: patResult.alternation.type, strength: patResult.alternation.strength },
+      streaks: patResult.streaks,
+      topBigrams: patResult.ngrams.bigrams.top5.slice(0, 3),
+      topTrigrams: patResult.ngrams.trigrams.top5.slice(0, 3)
+    };
+    jsConditions.JS_CONDITION_patternConsensusStrong = c.score >= 0.50 && c.spread >= 0.12;
+    jsConditions.JS_CONDITION_patternConsensusModerate = c.score >= 0.42 && c.spread >= 0.05;
+    jsConditions.JS_CONDITION_markovHighConfidence = patResult.markov.confidence >= 0.5;
+    jsConditions.JS_CONDITION_cycleDetected = patResult.cycles.detected;
+    jsConditions.JS_CONDITION_alternationDetected = patResult.alternation.detected;
+    jsConditions.JS_CONDITION_dozenStreakActive = patResult.streaks.currentStreak.length >= 3;
+  }
+
   return {
     totalSpins: n,
     nonZeroSpins: nonZero.length,
@@ -3565,6 +4579,11 @@ function generateMetricsPayload() {
     entropyAnalysis: entropyData,
     distortionPersistence: persistenceData,
     distortionIndex: distortionData,
+    distortionVelocity: velocityData,
+    distortionSignificance: significanceData,
+    distortionHarmony: harmonyData,
+    distortionTrend: trendData,
+    patternEngine: patternEngineData,
     JS_CONDITIONS: jsConditions,
     CODED_VERDICT: codedVerdict
   };
@@ -3583,6 +4602,7 @@ let chatMessages = [];
 
 function clearChat() {
   chatMessages = [];
+  aiConversationMemory = [];  // Wipe conversation memory
   _aiCache = {};  // Clear cache when chat is cleared
   const msgs = document.getElementById('aiMessages');
   msgs.innerHTML = `<div class="chat-empty" id="chatEmpty">
@@ -3602,7 +4622,7 @@ function appendUserMsg(text) {
   div.className = 'chat-msg user';
   div.innerHTML = `
     <div class="chat-msg-label">You</div>
-    <div class="chat-bubble-user">${text}</div>
+    <div class="chat-bubble-user">${escapeHtml(text)}</div>
   `;
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
@@ -3886,11 +4906,53 @@ let _aiCacheKey = '';
 let _aiCache = {};
 
 function getAICacheKey() {
-  // Cache key = hash of the full spin history so same data = same answer
-  return history.join(',');
+  // Cache key = history + provider + model so different AI backends don't share cache
+  const provider = document.getElementById('aiProvider')?.value || '';
+  const model = document.getElementById('aiModel')?.value || '';
+  return history.join(',') + '|' + provider + '|' + model;
 }
 
-const STRUCTURED_SYSTEM = `You are Claude Opus 4.6 acting as an interpreter of a roulette analytics dashboard.
+const PATTERN_SYSTEM = `You are a sequential pattern analyst for a roulette dozen-tracking system.
+
+YOUR ROLE: Analyze the PATTERN_ANALYSIS data to identify which dozen (D1: 1-12, D2: 13-24, D3: 25-36) 
+is most likely to appear NEXT based on sequential patterns in the spin history.
+
+PATTERN TYPES YOU MUST ANALYZE (in priority order):
+1. MARKOV CHAIN: Look at the transition matrix. What does the last state predict? High confidence (>0.45) = strong signal.
+2. N-GRAMS: Which bigrams/trigrams ending at the current state are most frequent? This reveals sequential tendencies.
+3. CYCLE DETECTION: Is there a repeating pattern? If detected (strength > 0.5), predict the next position in the cycle.
+4. STREAK ANALYSIS: Current streak dozen + length. Momentum (continue streak) vs regression (streak breaks).
+5. ALTERNATION: Is the sequence alternating between 2 dozens? If strict_binary, predict based on 2-back pattern.
+6. CONSENSUS: The JavaScript already computed weighted votes. Use consensus.predictedDozen as the primary suggestion, 
+   but you may disagree if you can cite a strong counter-signal from the individual patterns above.
+
+IMPORTANT RULES:
+- Always cite specific data from the PATTERN_ANALYSIS payload (e.g., "Markov P(D2→D1)=0.52").
+- If pattern signals conflict, explain the conflict.
+- If consensus spread < 0.05, say "signals are too split" and lower confidence.
+- Do NOT invent data. Only use what is in the payload.
+- Include the CODED_VERDICT fields exactly as provided (approach, recommendation, confidence, color).
+
+OUTPUT FORMAT:
+Return JSON ONLY, no markdown, with exactly this schema:
+{
+  "summary": "Brief overview of detected patterns",
+  "pattern_signals": [
+    {"type": "markov|bigram|cycle|streak|alternation", "prediction": "D1|D2|D3", "strength": "strong|moderate|weak", "detail": "..."}
+  ],
+  "consensus_prediction": "D1|D2|D3",
+  "consensus_confidence": <0-100>,
+  "consensus_reasoning": "Why this dozen was chosen based on pattern weights",
+  "approach": "<COPY from CODED_VERDICT>",
+  "recommendation": "<COPY from CODED_VERDICT.recommendDozenLabel>",
+  "color_recommendation": "<COPY from CODED_VERDICT.recommendColor>",
+  "color_confidence": <COPY from CODED_VERDICT.colorConfidence>,
+  "confidence": <COPY from CODED_VERDICT.confidence>,
+  "reason": "Combined analysis from patterns + coded verdict"
+}
+`;
+
+const STRUCTURED_SYSTEM = `You are an interpreter of a roulette analytics dashboard.
 
 BINDING RULES (non-negotiable):
 1) NEVER recompute the betting decision. The app already computed it in CODED_VERDICT.
@@ -3902,6 +4964,19 @@ BINDING RULES (non-negotiable):
    - colorConfidence (integer, as color_confidence)
 3) If CODED_VERDICT.approach == "NO_SIGNAL", recommendation MUST be "No bet recommended" and confidence MUST be 0.
 4) You may explain and cite supporting metrics (persistence gap/grade, DI, entropy, regime shift diagnostics), but you must NOT override the verdict.
+
+LEARNING DATA (if LEARNING_REPORT is present):
+- The LEARNING_REPORT contains historical accuracy of past predictions.
+- Reference it: "MOMENTUM has been hitting at 52% (13/25)" or "Pattern engine accuracy: 41%".
+- If an approach has accuracy < 35% over 10+ predictions, mention it is underperforming.
+- If an approach has accuracy > 50%, highlight it as a strength.
+- The bestApproach field tells you which strategy has been most accurate — cite it.
+- NEVER change the CODED_VERDICT based on learning data. Only comment on it.
+
+CONVERSATION CONTEXT:
+- You may receive prior conversation turns. Reference your own prior analysis when relevant.
+- Say things like "As noted in my previous analysis..." or "This confirms the D2 dominance I flagged earlier."
+- Do NOT repeat entire prior analyses. Be concise about what changed.
 
 TREND SHIFT / REGIME LOGIC (how to talk about it):
 - "Trend shift" should be discussed ONLY when the provided payload includes regime shift metrics (or an explicit shift score / label).
@@ -3923,11 +4998,12 @@ Return JSON ONLY, no markdown, with exactly this schema:
 }
 `;
 
-async function callAI(userMessage, promptText) {
+async function callAI(userMessage, promptText, systemOverride) {
   const provider = document.getElementById('aiProvider').value;
   const model = document.getElementById('aiModel').value;
   const apiKey = document.getElementById('aiApiKey').value.trim();
   const cfg = AI_PROVIDERS[provider];
+  const systemPrompt = systemOverride || STRUCTURED_SYSTEM;
 
   if (cfg.needsKey && !apiKey) {
     appendErrorMsg(`Please enter your ${cfg.name} API key above.`);
@@ -3945,20 +5021,52 @@ async function callAI(userMessage, promptText) {
     return;
   }
 
+  // Record user message to conversation memory
+  recordToMemory('user', promptText);
   appendUserMsg(userMessage);
   showTyping();
 
   try {
     let raw;
+    // Build messages with conversation memory
+    const messages = buildMessagesWithMemory(systemPrompt, promptText);
+
     if (provider === 'ollama') {
-      raw = await callViaOllama(model, promptText);
+      const response = await fetch('http://localhost:11434/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, temperature: 0, messages, stream: false })
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      raw = data.message?.content || JSON.stringify(data);
     } else if (provider === 'gemini') {
-      raw = await callViaGemini(model, apiKey, promptText);
+      // Gemini uses a different format — flatten memory into prompt
+      // Note: callViaGemini prepends the system prompt itself, so only pass memory + user text here
+      const memoryContext = aiConversationMemory.length > 0
+        ? '\n\nPRIOR CONVERSATION:\n' + aiConversationMemory.map(m => `[${m.role.toUpperCase()}]: ${m.content}`).join('\n') + '\n\nCURRENT REQUEST:\n'
+        : '';
+      raw = await callViaGemini(model, apiKey, memoryContext + promptText, systemOverride);
     } else {
-      raw = await callViaOpenAICompat(provider, model, apiKey, promptText);
+      const hosts = { openai: 'https://api.openai.com/v1/chat/completions', groq: 'https://api.groq.com/openai/v1/chat/completions' };
+      const url = hosts[provider];
+      if (!url) throw new Error(`Unknown provider: ${provider}`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model, temperature: 0, messages, stream: false,
+          response_format: (provider === 'openai' || model.includes('llama')) ? { type: 'json_object' } : undefined
+        })
+      });
+      if (!response.ok) { const err = await response.text(); throw new Error(err || `HTTP ${response.status}`); }
+      const data = await response.json();
+      raw = data.choices?.[0]?.message?.content || JSON.stringify(data);
     }
     removeTyping();
     const parsed = parseAIResponse(raw);
+    // Record AI response to conversation memory
+    recordToMemory('assistant', raw);
     // Cache the response for this exact spin state + action
     _aiCache[cacheKey] = parsed;
     appendAIMsg(parsed);
@@ -3969,59 +5077,18 @@ async function callAI(userMessage, promptText) {
   }
 }
 
-async function callViaOllama(model, prompt) {
-  const response = await fetch('http://localhost:11434/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, temperature: 0, messages: [
-      { role: 'system', content: STRUCTURED_SYSTEM },
-      { role: 'user', content: prompt }
-    ], stream: false })
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const data = await response.json();
-  return data.message?.content || JSON.stringify(data);
-}
+// callViaOllama and callViaOpenAICompat are now handled inline within callAI()
+// using buildMessagesWithMemory() to include conversation context.
+// Only callViaGemini remains standalone since it uses a different API format.
 
-async function callViaOpenAICompat(provider, model, apiKey, prompt) {
-  const hosts = {
-    openai: 'https://api.openai.com/v1/chat/completions',
-    groq:   'https://api.groq.com/openai/v1/chat/completions'
-  };
-  const url = hosts[provider];
-  if (!url) throw new Error(`Unknown provider: ${provider}`);
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0,
-      messages: [
-        { role: 'system', content: STRUCTURED_SYSTEM },
-        { role: 'user', content: prompt }
-      ],
-      stream: false,
-      response_format: (provider === 'openai' || model.includes('llama')) ? { type: 'json_object' } : undefined
-    })
-  });
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(err || `HTTP ${response.status}`);
-  }
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || JSON.stringify(data);
-}
-
-async function callViaGemini(model, apiKey, prompt) {
+async function callViaGemini(model, apiKey, prompt, systemOverride) {
+  const system = systemOverride || STRUCTURED_SYSTEM;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: STRUCTURED_SYSTEM + '\n\n' + prompt }] }],
+      contents: [{ parts: [{ text: system + '\n\n' + prompt }] }],
       generationConfig: { responseMimeType: 'application/json', temperature: 0 }
     })
   });
@@ -4082,6 +5149,41 @@ function buildConditionSummary(metrics) {
     lines.push('\nDistortion Index: Not enough data');
   }
 
+  // ── Distortion Velocity / Significance / Harmony / Trend ──
+  if (metrics.distortionVelocity) {
+    const v = metrics.distortionVelocity;
+    lines.push(`\nDistortion Velocity: ${v.velocity > 0 ? '+' : ''}${v.velocity} (${v.classification})`);
+    lines.push(`Current DI: ${v.currentDI} | Previous DI: ${v.prevDI}`);
+  }
+  if (metrics.distortionSignificance) {
+    const s = metrics.distortionSignificance;
+    lines.push(`Chi-squared: ${s.chiSquared} | Significance: ${s.pCategory}`);
+  }
+  if (metrics.distortionHarmony) {
+    const h = metrics.distortionHarmony;
+    lines.push(`Persistence×Index Harmony: ${h.harmony} (score ${h.score}) | Dozen agreement: ${h.dozenAgreement}`);
+  }
+  if (metrics.distortionTrend) {
+    const t = metrics.distortionTrend;
+    lines.push(`Distortion Trend: ${t.direction} (slope ${t.slope}, ${t.dataPoints} points)`);
+  }
+
+  // ── Pattern Detection Engine ──
+  if (metrics.patternEngine) {
+    const pe = metrics.patternEngine;
+    lines.push(`\n=== PATTERN DETECTION ENGINE ===`);
+    lines.push(`Consensus: ${pe.consensusDozen} (score ${(pe.consensusScore*100).toFixed(1)}%, spread ${(pe.consensusSpread*100).toFixed(1)}%)`);
+    lines.push(`Markov chain predicts: ${pe.markov.prediction} (${(pe.markov.confidence*100).toFixed(0)}%)`);
+    if (pe.topBigrams.length > 0) lines.push(`Top bigrams: ${pe.topBigrams.map(b => b.pattern + '×' + b.count).join(', ')}`);
+    if (pe.topTrigrams.length > 0) lines.push(`Top trigrams: ${pe.topTrigrams.map(t => t.pattern + '×' + t.count).join(', ')}`);
+    lines.push(`Cycle detected: ${pe.cycles.detected}${pe.cycles.detected ? ` (len=${pe.cycles.cycleLength}, str=${(pe.cycles.strength*100).toFixed(0)}%)` : ''}`);
+    lines.push(`Alternation: ${pe.alternation.detected}${pe.alternation.detected ? ` (${pe.alternation.type}, ${(pe.alternation.strength*100).toFixed(0)}%)` : ''}`);
+    lines.push(`Current streak: ${pe.streaks.currentStreak.dozen} ×${pe.streaks.currentStreak.length}`);
+    lines.push(`Vote breakdown: D1=${(pe.allVotes.D1).toFixed(2)}, D2=${(pe.allVotes.D2).toFixed(2)}, D3=${(pe.allVotes.D3).toFixed(2)}`);
+  } else {
+    lines.push(`\nPattern Engine: Not enough data (need 8+ non-zero spins)`);
+  }
+
   // Color analysis
   if (metrics.CODED_VERDICT && metrics.CODED_VERDICT.details && metrics.CODED_VERDICT.details.colorStats) {
     const cs = metrics.CODED_VERDICT.details.colorStats;
@@ -4109,15 +5211,35 @@ function buildConditionSummary(metrics) {
 function buildCompactPayload() {
   const metrics = generateMetricsPayload();
   if (metrics.error) return metrics;   // pass error through
-  return {
+
+  // Pattern detection engine data
+  const patternAnalysis = detectAllPatterns(history);
+
+  // Learning report from pattern database
+  const learningReport = generateLearningReport();
+
+  const payload = {
     totalSpins: metrics.totalSpins,
     nonZeroSpins: metrics.nonZeroSpins,
     recentSpins: metrics.recentSpins,
     entropyAnalysis: metrics.entropyAnalysis,
     distortionPersistence: metrics.distortionPersistence,
     distortionIndex: metrics.distortionIndex,
+    distortionVelocity: metrics.distortionVelocity,
+    distortionSignificance: metrics.distortionSignificance,
+    distortionHarmony: metrics.distortionHarmony,
+    distortionTrend: metrics.distortionTrend,
+    PATTERN_ANALYSIS: patternAnalysis,
+    patternEngine: metrics.patternEngine,
     CODED_VERDICT: metrics.CODED_VERDICT
   };
+
+  // Only include learning report if there's enough data
+  if (learningReport) {
+    payload.LEARNING_REPORT = learningReport;
+  }
+
+  return payload;
 }
 
 function explainCharts() {
@@ -4126,7 +5248,8 @@ function explainCharts() {
   const prompt = `TASK: Explain trends and what the dashboard metrics currently indicate (descriptive only).
 
 Instructions:
-- Use the payload's entropyAnalysis, distortionPersistence, distortionIndex, and any regime shift metrics if present.
+- Use the payload's entropyAnalysis, distortionPersistence, distortionIndex, distortionVelocity, distortionSignificance, distortionHarmony, distortionTrend, and any regime shift metrics if present.
+- Walk through pattern engine signals: Markov chain predicts, bigrams/trigrams suggest, cycle detection indicates, streaks point to, alternation suggests, and consensus predicts.
 - Keep anomalies minimal unless something is clearly outside normal thresholds.
 - Still obey the binding rules: copy CODED_VERDICT fields exactly.
 
@@ -4145,7 +5268,12 @@ Instructions:
   - Persistence gap grade (mild/moderate/strong/extreme)
   - Two-window confirmation status (if present)
   - Distortion Index level (low/moderate/high)
+  - Distortion Velocity (accelerating/increasing/stable/decreasing/correcting)
+  - Chi-squared significance (significant/marginal/weak/not significant)
+  - Persistence×Index harmony (concordant/divergent/quiet)
+  - Distortion Trend direction (rising/flat/falling)
   - Entropy level / patternConfidence
+  - Pattern engine: Markov chain predicts, bigrams suggest, cycles indicate, streaks point to, alternation suggests, consensus predicts
   - Regime shift score/label (if present)
 - If the dashboard indicates a possible regime shift, describe what changed (prev vs current distribution) WITHOUT changing the bet.
 - Still obey the binding rules: copy CODED_VERDICT fields exactly.
@@ -4155,13 +5283,37 @@ ${JSON.stringify(compact)}`;
   callAI('Detect anomalies & give recommendation', prompt);
 }
 
+function detectPatterns() {
+  const compact = buildCompactPayload();
+  if (compact.error) { appendErrorMsg(compact.error); return; }
+  if (!compact.PATTERN_ANALYSIS || !compact.PATTERN_ANALYSIS.ready) {
+    appendErrorMsg(compact.PATTERN_ANALYSIS ? compact.PATTERN_ANALYSIS.reason : 'Pattern engine needs more data (8+ non-zero spins).');
+    return;
+  }
+  const prompt = `TASK: Analyze the sequential patterns in PATTERN_ANALYSIS to predict which dozen appears next.
+
+Instructions:
+- Walk through each pattern signal: Markov chain, bigrams/trigrams, cycle detection, streaks, alternation.
+- Cite specific numbers from the data (transition probabilities, n-gram counts, cycle strength, etc).
+- Explain where signals agree and where they conflict.
+- Produce a consensus prediction with confidence.
+- Still copy CODED_VERDICT fields exactly.
+
+DATA PAYLOAD (JSON):
+${JSON.stringify(compact)}`;
+
+  // Use callAI with PATTERN_SYSTEM override — callAI handles caching, memory, provider checks
+  callAI('Detect sequential patterns & predict next dozen', prompt, PATTERN_SYSTEM);
+}
+
 function getBetAdvice() {
   const compact = buildCompactPayload();
   if (compact.error) { appendErrorMsg(compact.error); return; }
   const prompt = `TASK: Provide the single best statistical action right now, strictly following CODED_VERDICT.
 
 Instructions:
-- Output must be short and decisive, but include 1-2 metric citations (gap/DI/entropy) that justify the coded trigger.
+- Output must be short and decisive, but include 1-2 metric citations (gap/DI/entropy/velocity/significance/harmony/trend) that justify the coded trigger.
+- Reference pattern engine signals when relevant: Markov chain predicts, bigrams/trigrams suggest, cycle detection indicates, streaks point to, alternation suggests, and consensus predicts.
 - If approach is NO_SIGNAL, explicitly advise no bet and explain which triggers failed.
 - Still obey the binding rules: copy CODED_VERDICT fields exactly.
 
@@ -4352,47 +5504,58 @@ function renderStatusStrip() {
 
   // Signal + Gap from persistence
   if (nonZero.length >= 13) {
-    const sens = document.getElementById('sensitivity') ? document.getElementById('sensitivity').value : 'standard';
-    const mode = document.getElementById('signalMode') ? document.getElementById('signalMode').value : 'standard';
+    const sens = document.getElementById('sensitivity') ? document.getElementById('sensitivity').value : 'reliable';
+    const mode = document.getElementById('signalMode') ? document.getElementById('signalMode').value : 'twowindow';
     const result = distortionPersistence(history, sens, mode);
-    const dm = result.metrics13 || result.metricsCurr;
-
-    if (result.active) {
-      cls('ss-signal', 'ss-pill ss-pill-active'); document.getElementById('ss-signal').textContent = 'ACTIVE';
-    } else {
-      cls('ss-signal', 'ss-pill ss-pill-inactive'); document.getElementById('ss-signal').textContent = 'INACTIVE';
-    }
-    txt('ss-gap', dm.gap, dm.gap >= 5 ? 'var(--red-light)' : dm.gap >= 3 ? 'var(--gold)' : 'var(--text-dim)');
-
-    // Dominant
-    const domIdx = dm.counts.indexOf(Math.max(...dm.counts));
-    const domColors = ['var(--d1)','var(--d2)','var(--d3)'];
-    txt('ss-dominant', `D${domIdx+1}`, domColors[domIdx]);
-
-    // Approach
-    // Approach — use computeCodedVerdict() as single source of truth
-    const verdict = computeCodedVerdict();
-    if (verdict.approach === 'MOMENTUM') {
-      cls('ss-approach', 'ss-pill ss-pill-active'); document.getElementById('ss-approach').textContent = `MOMENTUM → D${verdict.recommendDozen}`;
-    } else if (verdict.approach === 'MEAN_REVERSION') {
-      cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `REVERSION → D${verdict.recommendDozen}`;
-    } else if (verdict.approach === 'ENTROPY_BIAS') {
-      cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `ENTROPY → D${verdict.recommendDozen}`;
-    } else if (verdict.approach === 'DI_MODERATE') {
-      cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `DI MOD → D${verdict.recommendDozen}`;
-    } else if (verdict.approach === 'DISTRIBUTION_LEAN') {
-      cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `DIST LEAN → D${verdict.recommendDozen}`;
-    } else {
-      cls('ss-approach', 'ss-pill ss-pill-inactive'); document.getElementById('ss-approach').textContent = 'NO SIGNAL';
-    }
-
-    // Color recommendation from verdict
-    const colorVal = verdict.recommendColor;
-    if (colorVal && colorVal !== 'NONE') {
-      const cCol = colorVal === 'RED' ? 'var(--red-light)' : '#ccc';
-      txt('ss-color', `${colorVal} (${verdict.colorConfidence}%)`, cCol);
-    } else {
+    if (!result) {
+      cls('ss-signal', 'ss-pill ss-pill-inactive'); document.getElementById('ss-signal').textContent = 'NEED DATA';
+      txt('ss-gap', '—', 'var(--text-dim)');
+      txt('ss-dominant', '—', 'var(--text-dim)');
+      cls('ss-approach', 'ss-pill ss-pill-inactive'); document.getElementById('ss-approach').textContent = '—';
       txt('ss-color', '—', 'var(--text-dim)');
+    } else {
+      const dm = result.metrics13 || result.metricsCurr;
+
+      if (result.active) {
+        cls('ss-signal', 'ss-pill ss-pill-active'); document.getElementById('ss-signal').textContent = 'ACTIVE';
+      } else {
+        cls('ss-signal', 'ss-pill ss-pill-inactive'); document.getElementById('ss-signal').textContent = 'INACTIVE';
+      }
+      txt('ss-gap', dm.gap, dm.gap >= 5 ? 'var(--red-light)' : dm.gap >= 3 ? 'var(--gold)' : 'var(--text-dim)');
+
+      // Dominant
+      const domIdx = dm.counts.indexOf(Math.max(...dm.counts));
+      const domColors = ['var(--d1)','var(--d2)','var(--d3)'];
+      txt('ss-dominant', `D${domIdx+1}`, domColors[domIdx]);
+
+      // Approach — use computeCodedVerdict() as single source of truth
+      const verdict = computeCodedVerdict();
+      if (verdict.approach === 'MOMENTUM') {
+        cls('ss-approach', 'ss-pill ss-pill-active'); document.getElementById('ss-approach').textContent = `MOMENTUM → D${verdict.recommendDozen}`;
+      } else if (verdict.approach === 'MEAN_REVERSION') {
+        cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `REVERSION → D${verdict.recommendDozen}`;
+      } else if (verdict.approach === 'ENTROPY_BIAS') {
+        cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `ENTROPY → D${verdict.recommendDozen}`;
+      } else if (verdict.approach === 'PATTERN_CONSENSUS') {
+        cls('ss-approach', 'ss-pill ss-pill-active'); document.getElementById('ss-approach').textContent = `PATTERN → D${verdict.recommendDozen}`;
+      } else if (verdict.approach === 'PATTERN_LEAN') {
+        cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `PAT LEAN → D${verdict.recommendDozen}`;
+      } else if (verdict.approach === 'DI_MODERATE') {
+        cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `DI MOD → D${verdict.recommendDozen}`;
+      } else if (verdict.approach === 'DISTRIBUTION_LEAN') {
+        cls('ss-approach', 'ss-pill ss-pill-gold'); document.getElementById('ss-approach').textContent = `DIST LEAN → D${verdict.recommendDozen}`;
+      } else {
+        cls('ss-approach', 'ss-pill ss-pill-inactive'); document.getElementById('ss-approach').textContent = 'NO SIGNAL';
+      }
+
+      // Color recommendation from verdict
+      const colorVal = verdict.recommendColor;
+      if (colorVal && colorVal !== 'NONE') {
+        const cCol = colorVal === 'RED' ? 'var(--red-light)' : '#ccc';
+        txt('ss-color', `${colorVal} (${verdict.colorConfidence}%)`, cCol);
+      } else {
+        txt('ss-color', '—', 'var(--text-dim)');
+      }
     }
   } else {
     cls('ss-signal', 'ss-pill ss-pill-inactive'); document.getElementById('ss-signal').textContent = 'NEED DATA';
@@ -4426,6 +5589,16 @@ function renderStatusStrip() {
     txt('ss-distortion', diVal.toFixed(2), dcol);
   } else {
     txt('ss-distortion', '—', 'var(--text-dim)');
+  }
+
+  // Velocity
+  const vel = distortionVelocity(history);
+  if (vel) {
+    const velColorMap = { ACCELERATING:'var(--red-light)', INCREASING:'var(--gold)', STABLE:'var(--text-dim)', DECREASING:'var(--green-light)', CORRECTING:'var(--green-light)' };
+    const arrowMap = { ACCELERATING:'⇈', INCREASING:'↑', STABLE:'→', DECREASING:'↓', CORRECTING:'⇊' };
+    txt('ss-velocity', `${arrowMap[vel.classification]} ${vel.velocity > 0 ? '+' : ''}${vel.velocity.toFixed(1)}`, velColorMap[vel.classification]);
+  } else {
+    txt('ss-velocity', '—', 'var(--text-dim)');
   }
 
   // Streak (current)
@@ -4466,13 +5639,15 @@ function renderConditionsDashboard() {
     txt('cp-pattern-det', '—'); txt('cp-conf', '—'); txt('cp-bias-doz', '—');
     txt('cp-di-val', '—'); txt('cp-di-level', '—'); txt('cp-di-frame', '—');
     txt('cp-di-dom', '—'); txt('cp-di-weak', '—');
+    txt('cp-di-velocity', '—'); txt('cp-di-sig', '—'); txt('cp-di-harmony', '—'); txt('cp-di-trend', '—');
     txt('cp-approach', '—'); txt('cp-bet', '—'); txt('cp-color', '—'); txt('cp-color-conf', '—'); txt('cp-trigger', '—');
     return;
   }
 
-  const sens = document.getElementById('sensitivity') ? document.getElementById('sensitivity').value : 'standard';
-  const mode = document.getElementById('signalMode') ? document.getElementById('signalMode').value : 'standard';
+  const sens = document.getElementById('sensitivity') ? document.getElementById('sensitivity').value : 'reliable';
+  const mode = document.getElementById('signalMode') ? document.getElementById('signalMode').value : 'twowindow';
   const result = distortionPersistence(history, sens, mode);
+  if (!result) return; // distortionPersistence can return null if mode needs more data than 13 spins
   const dm = result.metrics13 || result.metricsCurr;
   const domIdx = dm.counts.indexOf(Math.max(...dm.counts));
   const weakIdx = dm.counts.indexOf(Math.min(...dm.counts));
@@ -4523,9 +5698,47 @@ function renderConditionsDashboard() {
     txt('cp-di-dom', `D${di.dominantDozen}`, domColors[di.dominantDozen-1]);
     txt('cp-di-weak', `D${di.weakestDozen}`, 'var(--text-dim)');
 
+    // Velocity
+    const vel = distortionVelocity(history);
+    if (vel) {
+      const velColorMap = { ACCELERATING:'var(--red-light)', INCREASING:'var(--gold)', STABLE:'var(--text-dim)', DECREASING:'var(--green-light)', CORRECTING:'var(--green-light)' };
+      txt('cp-di-velocity', `${vel.classification} (${vel.velocity > 0 ? '+' : ''}${vel.velocity.toFixed(2)})`, velColorMap[vel.classification]);
+    } else {
+      txt('cp-di-velocity', 'Need 24+ spins', 'var(--text-dim)');
+    }
+
+    // Significance
+    const sig = distortionSignificance(history);
+    if (sig) {
+      const sigCol = sig.pCategory === 'SIGNIFICANT' ? 'var(--red-light)' : sig.pCategory === 'MARGINAL' ? 'var(--gold)' : 'var(--text-dim)';
+      txt('cp-di-sig', `${sig.pCategory.replace('_',' ')} (χ²=${sig.chiSquared.toFixed(2)})`, sigCol);
+    } else {
+      txt('cp-di-sig', '—', 'var(--text-dim)');
+    }
+
+    // Harmony
+    const sens = document.getElementById('sensitivity') ? document.getElementById('sensitivity').value : 'reliable';
+    const mode = document.getElementById('signalMode') ? document.getElementById('signalMode').value : 'twowindow';
+    const harm = distortionHarmony(history, sens, mode);
+    if (harm) {
+      const harmCol = harm.harmony.startsWith('CONCORDANT') ? 'var(--green-light)' : harm.harmony.startsWith('DIVERGENT') ? 'var(--red-light)' : 'var(--text-dim)';
+      txt('cp-di-harmony', `${harm.harmony.replace(/_/g,' ')} (${(harm.score*100).toFixed(0)}%)`, harmCol);
+    } else {
+      txt('cp-di-harmony', '—', 'var(--text-dim)');
+    }
+
+    // Trend
+    const trend = distortionTrend(history);
+    if (trend) {
+      const tCol = trend.trendDirection === 'RISING' ? 'var(--red-light)' : trend.trendDirection === 'FALLING' ? 'var(--green-light)' : 'var(--text-dim)';
+      txt('cp-di-trend', `${trend.trendDirection} (slope: ${trend.slope > 0 ? '+' : ''}${trend.slope.toFixed(3)})`, tCol);
+    } else {
+      txt('cp-di-trend', 'Need more data', 'var(--text-dim)');
+    }
+
     // Coded logic verdict — use computeCodedVerdict() as single source of truth
     const verdict = computeCodedVerdict();
-    const approachColor = verdict.approach === 'MOMENTUM' ? 'var(--green-light)' : verdict.approach === 'MEAN_REVERSION' ? 'var(--gold)' : verdict.approach === 'ENTROPY_BIAS' ? 'var(--blue)' : (verdict.approach === 'DI_MODERATE' || verdict.approach === 'DISTRIBUTION_LEAN') ? '#8a9aab' : 'var(--text-dim)';
+    const approachColor = verdict.approach === 'MOMENTUM' ? 'var(--green-light)' : verdict.approach === 'MEAN_REVERSION' ? 'var(--gold)' : verdict.approach === 'ENTROPY_BIAS' ? 'var(--blue)' : verdict.approach === 'PATTERN_CONSENSUS' ? 'var(--green-light)' : verdict.approach === 'PATTERN_LEAN' ? 'var(--gold)' : (verdict.approach === 'DI_MODERATE' || verdict.approach === 'DISTRIBUTION_LEAN') ? '#8a9aab' : 'var(--text-dim)';
     txt('cp-approach', verdict.approach, approachColor);
     txt('cp-bet', verdict.recommendDozenLabel, verdict.approach !== 'NO_SIGNAL' ? 'var(--gold)' : 'var(--text-dim)');
     const colorVal = verdict.recommendColor;
@@ -4534,11 +5747,85 @@ function renderConditionsDashboard() {
     txt('cp-color-conf', verdict.colorConfidence > 0 ? verdict.colorConfidence + '%' : '—', colorDisplayColor);
     txt('cp-trigger', verdict.trigger, 'var(--text-dim)');
   }
+
+  // Pattern Detection Dashboard
+  const pat = detectAllPatterns(history);
+  if (pat.ready) {
+    const c = pat.consensus;
+    const domColors = ['','var(--d1)','var(--d2)','var(--d3)'];
+    const dIdx = c.predictedDozen === 'D1' ? 1 : c.predictedDozen === 'D2' ? 2 : 3;
+    txt('cp-pat-status', '● READY', 'var(--green-light)');
+    txt('cp-pat-consensus', c.predictedDozen, domColors[dIdx]);
+    txt('cp-pat-score', (c.score * 100).toFixed(1) + '%', c.score >= 0.45 ? 'var(--gold)' : 'var(--text)');
+    txt('cp-pat-spread', (c.spread * 100).toFixed(1) + '%', c.spread >= 0.1 ? 'var(--green-light)' : 'var(--text-dim)');
+    txt('cp-pat-markov', `${pat.markov.prediction} (${(pat.markov.confidence * 100).toFixed(0)}%)`, domColors[pat.markov.prediction === 'D1' ? 1 : pat.markov.prediction === 'D2' ? 2 : 3]);
+    txt('cp-pat-cycle', pat.cycles.detected ? `Yes (len ${pat.cycles.cycleLength}, ${(pat.cycles.strength * 100).toFixed(0)}%)` : 'None', pat.cycles.detected ? 'var(--gold)' : 'var(--text-dim)');
+    txt('cp-pat-streak', `${pat.streaks.currentStreak.dozen} ×${pat.streaks.currentStreak.length}`, domColors[pat.streaks.currentStreak.dozen === 'D1' ? 1 : pat.streaks.currentStreak.dozen === 'D2' ? 2 : 3]);
+    txt('cp-pat-alt', pat.alternation.detected ? `${pat.alternation.type} (${(pat.alternation.strength * 100).toFixed(0)}%)` : 'None', pat.alternation.detected ? 'var(--gold)' : 'var(--text-dim)');
+  } else {
+    txt('cp-pat-status', pat.reason || 'Need more data', 'var(--text-dim)');
+    txt('cp-pat-consensus', '—'); txt('cp-pat-score', '—'); txt('cp-pat-spread', '—');
+    txt('cp-pat-markov', '—'); txt('cp-pat-cycle', '—'); txt('cp-pat-streak', '—'); txt('cp-pat-alt', '—');
+  }
+
+  // Learning Database Dashboard
+  renderLearningDashboard();
+}
+
+function renderLearningDashboard() {
+  const txt = (id, v, color) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = v;
+    if (color) e.style.color = color;
+  };
+
+  const report = generateLearningReport();
+  const archive = loadSessionsArchive();
+
+  if (!report) {
+    txt('cp-learn-total', '< 3 scored');
+    txt('cp-learn-accuracy', '—');
+    txt('cp-learn-recent', '—');
+    txt('cp-learn-best', '—');
+    txt('cp-learn-pattern', '—');
+  } else {
+    txt('cp-learn-total', `${report.totalPredictions} scored`, 'var(--text)');
+    const accColor = report.overallAccuracy >= 40 ? 'var(--green-light)' : report.overallAccuracy >= 30 ? 'var(--gold)' : 'var(--red-light)';
+    txt('cp-learn-accuracy', report.overallAccuracy + '%', accColor);
+    const recColor = report.recentAccuracy >= 40 ? 'var(--green-light)' : report.recentAccuracy >= 30 ? 'var(--gold)' : 'var(--red-light)';
+    txt('cp-learn-recent', report.recentAccuracy + '%', recColor);
+    txt('cp-learn-best', report.bestApproach ? `${report.bestApproach.approach} (${report.bestApproach.accuracy}%)` : 'N/A (need 3+)', report.bestApproach ? 'var(--gold)' : 'var(--text-dim)');
+    txt('cp-learn-pattern', report.patternEngineAccuracy !== null ? report.patternEngineAccuracy + '%' : 'N/A', report.patternEngineAccuracy !== null && report.patternEngineAccuracy >= 40 ? 'var(--green-light)' : 'var(--text-dim)');
+  }
+
+  // Pending prediction
+  if (patternDB.pendingPrediction) {
+    const p = patternDB.pendingPrediction;
+    txt('cp-learn-pending', `${p.predictedDozen} (${p.approach})`, 'var(--gold)');
+  } else {
+    txt('cp-learn-pending', 'None', 'var(--text-dim)');
+  }
+
+  // Sessions archived
+  txt('cp-learn-sessions', archive.length > 0 ? `${archive.length} archived` : '0', 'var(--text-dim)');
+
+  // Conversation memory turns
+  const memTurns = Math.floor(aiConversationMemory.length / 2);
+  txt('cp-learn-memory', memTurns > 0 ? `${memTurns} turns` : '0', memTurns > 0 ? 'var(--text)' : 'var(--text-dim)');
 }
 
 // ─── INIT ────────────────────────────────────────────────────
 renderAll();
-if (history.length) showToast(`Restored ${history.length} spins from last session`);
+// Capture pending prediction on load if there isn't one already
+if (history.length >= 12 && !patternDB.pendingPrediction) {
+  capturePendingPrediction();
+}
+if (history.length) {
+  const dbCount = patternDB.predictions.length;
+  const dbMsg = dbCount > 0 ? ` · Learning DB: ${dbCount} predictions` : '';
+  showToast(`Restored ${history.length} spins from last session${dbMsg}`);
+}
 </script>
 </body>
 </html>
