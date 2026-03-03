@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0a0a">
-<title>Roulette Analyst v15</title>
+<title>Roulette Analyst v16</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -2064,6 +2064,513 @@
     margin-bottom: 6px;
     color: var(--red-light);
   }
+
+  /* ─── DISCLAIMER BANNER ─── */
+  .disclaimer-banner {
+    background: linear-gradient(90deg, rgba(192,57,43,0.10) 0%, rgba(201,168,76,0.08) 50%, rgba(192,57,43,0.10) 100%);
+    border-bottom: 1px solid rgba(192,57,43,0.3);
+    padding: 8px 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 10;
+  }
+  .disclaimer-banner .disc-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .disclaimer-banner .disc-text {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: #e0a070;
+    line-height: 1.5;
+  }
+  .disclaimer-banner .disc-text strong {
+    color: var(--red-light);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-size: 8px;
+  }
+  .disclaimer-close {
+    margin-left: auto;
+    background: none;
+    border: 1px solid rgba(192,57,43,0.3);
+    color: var(--text-dim);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    transition: all 0.2s;
+  }
+  .disclaimer-close:hover { border-color: var(--text-dim); color: var(--text); }
+
+  /* ─── OBSERVER TAB ─── */
+  .observer-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    min-height: calc(100vh - 120px);
+    position: relative;
+    z-index: 1;
+  }
+
+  .obs-main { padding: 28px 40px; border-right: 1px solid var(--border); }
+  .obs-side { padding: 28px 24px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+
+  /* Distribution canvas */
+  .obs-dist-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .obs-dist-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 12px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .obs-dist-card .obs-dozen-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .obs-dist-card .obs-count {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .obs-dist-card .obs-pct {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .obs-dist-card .obs-exp {
+    font-size: 9px;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+
+  .obs-dist-card .obs-bar-track {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .obs-dist-card .obs-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+  }
+
+  /* Rolling window selector */
+  .obs-window-selector {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .obs-window-btn {
+    padding: 6px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .obs-window-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .obs-window-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.08); }
+
+  /* Entropy + DI observation panels */
+  .obs-metric-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .obs-metric-header {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .obs-metric-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 900;
+    margin-bottom: 4px;
+  }
+
+  .obs-metric-sub {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  /* Bankroll Tracker */
+  .bankroll-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+
+  .bankroll-header {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bankroll-header::before { content: '◈'; font-size: 12px; }
+
+  .bankroll-balance {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    font-weight: 900;
+    text-align: center;
+    margin-bottom: 4px;
+    transition: color 0.3s;
+  }
+
+  .bankroll-pl {
+    text-align: center;
+    font-size: 12px;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+
+  .bankroll-input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .bankroll-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .bankroll-input-group label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .bankroll-input-group input {
+    padding: 8px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    border-radius: 4px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+
+  .bankroll-input-group input:focus { outline: none; border-color: var(--gold); }
+
+  .bankroll-btn-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .bankroll-btn {
+    flex: 1;
+    padding: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    border: 1px solid;
+  }
+
+  .bankroll-btn.win-btn {
+    background: rgba(39,174,96,0.1);
+    border-color: rgba(39,174,96,0.4);
+    color: var(--green-light);
+  }
+
+  .bankroll-btn.win-btn:hover { background: rgba(39,174,96,0.2); border-color: var(--green-light); }
+
+  .bankroll-btn.loss-btn {
+    background: rgba(192,57,43,0.1);
+    border-color: rgba(192,57,43,0.4);
+    color: var(--red-light);
+  }
+
+  .bankroll-btn.loss-btn:hover { background: rgba(192,57,43,0.2); border-color: var(--red-light); }
+
+  .bankroll-btn.reset-btn {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-dim);
+    flex: 0 0 auto;
+    padding: 10px 14px;
+  }
+
+  .bankroll-btn.reset-btn:hover { border-color: var(--text-dim); color: var(--text); }
+
+  .bankroll-log {
+    max-height: 180px;
+    overflow-y: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+  }
+
+  .bankroll-log::-webkit-scrollbar { width: 3px; }
+  .bankroll-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .bankroll-log-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(42,42,42,0.5);
+    font-size: 10px;
+  }
+
+  .bankroll-log-entry:last-child { border-bottom: none; }
+
+  .bankroll-log-entry .ble-type {
+    font-size: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+
+  .ble-type.ble-win { background: rgba(39,174,96,0.15); color: var(--green-light); }
+  .ble-type.ble-loss { background: rgba(192,57,43,0.15); color: var(--red-light); }
+  .ble-type.ble-buyin { background: rgba(201,168,76,0.15); color: var(--gold); }
+
+  .bankroll-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .bankroll-stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+
+  .bankroll-stat-card .bsc-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  .bankroll-stat-card .bsc-label {
+    font-size: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ─── PREDICTION ENGINE TAB ─── */
+  .pred-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    min-height: calc(100vh - 120px);
+    position: relative;
+    z-index: 1;
+  }
+
+  .pred-main { padding: 28px 40px; border-right: 1px solid var(--border); }
+  .pred-side { padding: 28px 24px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+
+  .pred-disclaimer {
+    padding: 12px 16px;
+    background: rgba(192,57,43,0.08);
+    border: 1px solid rgba(192,57,43,0.3);
+    border-radius: 6px;
+    font-size: 10px;
+    color: #e0a070;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .pred-disclaimer strong {
+    display: block;
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--red-light);
+    margin-bottom: 4px;
+  }
+
+  .pred-frame-badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    border: 1px solid rgba(192,57,43,0.5);
+    color: var(--red-light);
+    background: rgba(192,57,43,0.06);
+  }
+
+  .pred-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .pred-section-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: rgba(201,168,76,0.03);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .pred-section-body { padding: 14px 16px; }
+
+  .pred-vote-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .pred-vote-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    width: 24px;
+    flex-shrink: 0;
+  }
+
+  .pred-vote-track {
+    flex: 1;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .pred-vote-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+    min-width: 2px;
+  }
+
+  .pred-vote-pct {
+    font-size: 10px;
+    color: var(--text-dim);
+    width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* Reversion gauge */
+  .rev-gauge-container {
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 8px 0;
+    position: relative;
+  }
+
+  .rev-gauge-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease, background 0.4s;
+  }
+
+  .rev-gauge-markers {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  /* Accuracy badge */
+  .pred-accuracy-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1px;
+  }
+
+  /* Mobile overrides for new tabs */
+  @media (max-width: 960px) {
+    .observer-layout, .pred-layout { grid-template-columns: 1fr; }
+    .obs-main, .pred-main { border-right: none; }
+    .obs-side, .pred-side { border-top: 1px solid var(--border); }
+  }
+
+  @media (max-width: 600px) {
+    .observer-layout, .pred-layout { grid-template-columns: 1fr; }
+    .obs-main, .pred-main { padding: 16px 14px; border-right: none; }
+    .obs-side, .pred-side { padding: 16px 14px; }
+    .obs-dist-grid { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .obs-dist-card .obs-count { font-size: 24px; }
+    .bankroll-balance { font-size: 28px; }
+    .bankroll-input-row { grid-template-columns: 1fr; }
+    .bankroll-stats-grid { grid-template-columns: 1fr 1fr; }
+    .disclaimer-banner { padding: 8px 16px; flex-wrap: wrap; }
+  }
 </style>
 </head>
 <body>
@@ -2072,9 +2579,9 @@
 <div class="toast" id="toast"></div>
 
 <header>
-  <h1>Roulette Analyst v15</h1>
+  <h1>Roulette Analyst v16</h1>
   <div class="header-meta">
-    <span class="tagline">Statistical Analysis Suite · v15</span>
+    <span class="tagline">Statistical Observer · v16</span>
     <div class="session-pill" onclick="exportHistory()" title="Export spin history">
       <div class="dot"></div>
       <span id="headerSpinCount">0 spins</span>
@@ -2082,11 +2589,23 @@
   </div>
 </header>
 
+<!-- ─── ENTERTAINMENT DISCLAIMER ─── -->
+<div class="disclaimer-banner" id="disclaimerBanner">
+  <span class="disc-icon">⚠</span>
+  <span class="disc-text">
+    <strong>Entertainment Only — Not a Prediction Tool</strong>
+    Roulette spins are independent random events. No algorithm, pattern, or statistical analysis can predict future outcomes. Past distribution does not influence future results. This tool provides <em>observational statistics</em> and <em>entertainment-grade pattern games</em> — never bet based on any output.
+  </span>
+  <button class="disclaimer-close" onclick="document.getElementById('disclaimerBanner').style.display='none'">✕</button>
+</div>
+
 <nav class="tab-nav">
   <button class="tab-btn active"  onclick="switchTab('pattern', this)">Pattern Analysis</button>
+  <button class="tab-btn"         onclick="switchTab('observer', this)">Observer & Bankroll</button>
   <button class="tab-btn"         onclick="switchTab('persistence', this)">Distortion Persistence</button>
   <button class="tab-btn"         onclick="switchTab('distortion', this)">Distortion Index</button>
   <button class="tab-btn"         onclick="switchTab('stats', this)">Statistics</button>
+  <button class="tab-btn"         onclick="switchTab('prediction', this)">Prediction Engine</button>
   <button class="tab-btn"         onclick="switchTab('ai', this)">AI Insights</button>
 </nav>
 
@@ -2299,6 +2818,168 @@
       </div>
 
       <div class="alert-info" id="infoBox">Add spins to begin analysis. Needs at least 12 results to compute entropy.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB — OBSERVER & BANKROLL
+════════════════════════════════════════════════ -->
+<div id="tab-observer" class="tab-panel">
+  <div class="observer-layout">
+    <div class="obs-main">
+
+      <div class="module-header">
+        <h2>Honest Observer</h2>
+        <p>Pure observational statistics — what <em>has</em> happened, not what <em>will</em> happen. No predictions, no signals, no heuristics. Just the math.</p>
+        <p style="color:var(--text-dim);font-size:10px;margin-top:6px;">⚠ Each spin is independent. Distribution imbalances in past data have <strong>zero</strong> predictive power over future spins.</p>
+      </div>
+
+      <div class="input-label" style="margin-bottom:6px;">Observation Window</div>
+      <div class="obs-window-selector">
+        <button class="obs-window-btn active" onclick="setObsWindow(13, this)">Last 13</button>
+        <button class="obs-window-btn" onclick="setObsWindow(26, this)">Last 26</button>
+        <button class="obs-window-btn" onclick="setObsWindow(36, this)">Last 36</button>
+        <button class="obs-window-btn" onclick="setObsWindow(0, this)">All Spins</button>
+      </div>
+
+      <div class="input-label" style="margin-bottom:12px;">Dozen Distribution <span style="font-size:8px;color:var(--text-dim);letter-spacing:1px;" id="obs-window-label">(last 13 non-zero)</span></div>
+      <div class="obs-dist-grid">
+        <div class="obs-dist-card">
+          <div class="obs-dozen-label">First Dozen</div>
+          <div class="obs-count first-color" id="obs-d1-count">—</div>
+          <div class="obs-pct" id="obs-d1-pct">—</div>
+          <div class="obs-exp" id="obs-d1-exp">Expected: —</div>
+          <div class="obs-bar-track"><div class="obs-bar-fill" id="obs-d1-bar" style="width:0%;background:var(--d1)"></div></div>
+        </div>
+        <div class="obs-dist-card">
+          <div class="obs-dozen-label">Second Dozen</div>
+          <div class="obs-count second-color" id="obs-d2-count">—</div>
+          <div class="obs-pct" id="obs-d2-pct">—</div>
+          <div class="obs-exp" id="obs-d2-exp">Expected: —</div>
+          <div class="obs-bar-track"><div class="obs-bar-fill" id="obs-d2-bar" style="width:0%;background:var(--d2)"></div></div>
+        </div>
+        <div class="obs-dist-card">
+          <div class="obs-dozen-label">Third Dozen</div>
+          <div class="obs-count third-color" id="obs-d3-count">—</div>
+          <div class="obs-pct" id="obs-d3-pct">—</div>
+          <div class="obs-exp" id="obs-d3-exp">Expected: —</div>
+          <div class="obs-bar-track"><div class="obs-bar-fill" id="obs-d3-bar" style="width:0%;background:var(--d3)"></div></div>
+        </div>
+      </div>
+
+      <div class="obs-metric-panel">
+        <div class="obs-metric-header">
+          <span>Shannon Entropy (Normalized)</span>
+          <span style="font-size:8px;color:var(--text-dim)">0 = one dozen only · 1 = perfectly uniform</span>
+        </div>
+        <div class="obs-metric-value" id="obs-entropy-val" style="color:var(--text-dim)">—</div>
+        <div class="bar-track" style="margin:8px 0"><div class="bar-fill" id="obs-entropy-bar" style="width:0%;background:linear-gradient(90deg,#c0392b,#c9a84c,#27ae60)"></div></div>
+        <div class="obs-metric-sub" id="obs-entropy-desc">Add non-zero spins to compute entropy. H = −Σ pᵢ ln(pᵢ) / ln(3)</div>
+      </div>
+
+      <div class="obs-metric-panel">
+        <div class="obs-metric-header">
+          <span>Distortion Index (0–10)</span>
+          <span style="font-size:8px;color:var(--text-dim)">Measures deviation from expected uniform distribution</span>
+        </div>
+        <div class="obs-metric-value" id="obs-di-val" style="color:var(--text-dim)">—</div>
+        <div class="bar-track" style="margin:8px 0"><div class="bar-fill" id="obs-di-bar" style="width:0%;background:linear-gradient(90deg,#27ae60,#c9a84c,#c0392b)"></div></div>
+        <div class="obs-metric-sub" id="obs-di-desc">Based on |observed − expected| deviation across all three dozens.</div>
+      </div>
+
+      <div class="obs-metric-panel">
+        <div class="obs-metric-header">
+          <span>Chi-Squared Test (χ²)</span>
+          <span style="font-size:8px;color:var(--text-dim)">df=2 · Significant if χ² > 5.991</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:12px;">
+          <div class="obs-metric-value" id="obs-chi-val" style="color:var(--text-dim);font-size:22px">—</div>
+          <span class="sig-badge sig-none" id="obs-chi-badge">—</span>
+        </div>
+        <div class="obs-metric-sub" id="obs-chi-desc">Tests whether observed distribution differs significantly from uniform (⅓, ⅓, ⅓).</div>
+      </div>
+
+      <div class="obs-metric-panel">
+        <div class="obs-metric-header">
+          <span>Zero Frequency</span>
+        </div>
+        <div style="display:flex;gap:24px;align-items:baseline;">
+          <div>
+            <div class="obs-metric-value" id="obs-zero-count" style="font-size:22px;color:var(--green-light)">—</div>
+            <div class="obs-metric-sub">zeros in window</div>
+          </div>
+          <div>
+            <div class="obs-metric-value" id="obs-zero-pct" style="font-size:22px;color:var(--text-dim)">—</div>
+            <div class="obs-metric-sub">observed %</div>
+          </div>
+          <div>
+            <div class="obs-metric-value" id="obs-zero-exp" style="font-size:22px;color:var(--text-dim)">—</div>
+            <div class="obs-metric-sub">expected (2.7%)</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="obs-side">
+
+      <!-- Bankroll Tracker -->
+      <div class="bankroll-card">
+        <div class="bankroll-header">Bankroll Tracker</div>
+        <div class="bankroll-balance" id="br-balance" style="color:var(--text-dim)">$0.00</div>
+        <div class="bankroll-pl" id="br-pl" style="color:var(--text-dim)">P&L: $0.00</div>
+
+        <div class="bankroll-input-row">
+          <div class="bankroll-input-group">
+            <label>Buy-In Amount</label>
+            <input type="number" id="br-buyin-input" min="0" step="1" placeholder="100" />
+          </div>
+          <div class="bankroll-input-group">
+            <label>Bet Amount</label>
+            <input type="number" id="br-bet-input" min="0" step="1" placeholder="10" />
+          </div>
+        </div>
+
+        <div class="bankroll-btn-row">
+          <button class="bankroll-btn" style="background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.4);color:var(--gold);" onclick="bankrollBuyIn()">Buy In</button>
+          <button class="bankroll-btn win-btn" onclick="bankrollWin()">+ Win</button>
+          <button class="bankroll-btn loss-btn" onclick="bankrollLoss()">− Loss</button>
+          <button class="bankroll-btn reset-btn" onclick="bankrollReset()">Reset</button>
+        </div>
+
+        <div class="bankroll-stats-grid">
+          <div class="bankroll-stat-card">
+            <div class="bsc-val" id="br-wins" style="color:var(--green-light)">0</div>
+            <div class="bsc-label">Wins</div>
+          </div>
+          <div class="bankroll-stat-card">
+            <div class="bsc-val" id="br-losses" style="color:var(--red-light)">0</div>
+            <div class="bsc-label">Losses</div>
+          </div>
+          <div class="bankroll-stat-card">
+            <div class="bsc-val" id="br-winrate" style="color:var(--text-dim)">—</div>
+            <div class="bsc-label">Win Rate</div>
+          </div>
+        </div>
+
+        <div class="input-label" style="margin-bottom:6px;">Transaction Log</div>
+        <div class="bankroll-log" id="br-log">
+          <span style="font-size:10px;color:var(--text-dim)">No transactions yet. Buy in to start tracking.</span>
+        </div>
+      </div>
+
+      <!-- Session Summary -->
+      <div class="bankroll-card">
+        <div class="bankroll-header">Session Summary</div>
+        <div class="stat-row"><div class="stat-key">Total Buy-Ins</div><div class="stat-val" id="br-total-buyin">$0</div></div>
+        <div class="stat-row"><div class="stat-key">Total Won</div><div class="stat-val" id="br-total-won" style="color:var(--green-light)">$0</div></div>
+        <div class="stat-row"><div class="stat-key">Total Lost</div><div class="stat-val" id="br-total-lost" style="color:var(--red-light)">$0</div></div>
+        <div class="stat-row"><div class="stat-key">Net P&L</div><div class="stat-val" id="br-net-pl">$0</div></div>
+        <div class="stat-row"><div class="stat-key">Largest Win</div><div class="stat-val" id="br-largest-win" style="color:var(--green-light)">—</div></div>
+        <div class="stat-row" style="border:none"><div class="stat-key">Largest Loss</div><div class="stat-val" id="br-largest-loss" style="color:var(--red-light)">—</div></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -2669,6 +3350,147 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TAB — PREDICTION ENGINE (Entertainment Only)
+════════════════════════════════════════════════ -->
+<div id="tab-prediction" class="tab-panel">
+  <div class="pred-layout">
+    <div class="pred-main">
+
+      <div class="pred-disclaimer">
+        <strong>⚠ Entertainment Only — Not Financial Advice</strong>
+        The pattern detection and prediction machinery below is for <em>entertainment purposes only</em>. Roulette is a game of independent random events — no pattern engine, Markov chain, or statistical model can predict future spins. Historical accuracy hovers around the random baseline (~33%). Never place bets based on these outputs.
+      </div>
+
+      <div class="module-header">
+        <h2>Prediction Engine</h2>
+        <p>Consolidated view of all pattern detection and prediction algorithms, operating on <strong style="color:var(--text)">13-spin non-zero frames</strong>. All models below are entertainment-grade statistical toys.</p>
+      </div>
+
+      <div class="pred-frame-badge">13-Spin Frame · Entertainment Grade</div>
+
+      <div class="input-label">Current Frame (13 Non-Zero Spins)</div>
+      <div class="frame-visual" id="pred-frame-visual">
+        <span style="font-size:10px;color:var(--text-dim)">Add spins on the Pattern tab first…</span>
+      </div>
+
+      <!-- Pattern Consensus -->
+      <div class="pred-section">
+        <div class="pred-section-header">
+          <span>Pattern Consensus Engine</span>
+          <span style="font-size:8px;color:var(--text-dim)" id="pred-consensus-status">Awaiting data</span>
+        </div>
+        <div class="pred-section-body" id="pred-consensus-body">
+          <div style="font-size:10px;color:var(--text-dim)">Need 8+ non-zero spins to run pattern detection…</div>
+        </div>
+      </div>
+
+      <!-- Markov Chain -->
+      <div class="pred-section">
+        <div class="pred-section-header">
+          <span>Markov Chain (1st Order)</span>
+          <span style="font-size:8px;color:var(--text-dim)" id="pred-markov-status">—</span>
+        </div>
+        <div class="pred-section-body" id="pred-markov-body">
+          <div style="font-size:10px;color:var(--text-dim)">Awaiting data…</div>
+        </div>
+      </div>
+
+      <!-- N-gram Analysis -->
+      <div class="pred-section">
+        <div class="pred-section-header">
+          <span>N-Gram Analysis (Bigrams + Trigrams)</span>
+        </div>
+        <div class="pred-section-body" id="pred-ngram-body">
+          <div style="font-size:10px;color:var(--text-dim)">Awaiting data…</div>
+        </div>
+      </div>
+
+      <!-- Cycle + Alternation + Streaks -->
+      <div class="pred-section">
+        <div class="pred-section-header">
+          <span>Cycle · Alternation · Streak Detection</span>
+        </div>
+        <div class="pred-section-body" id="pred-cycle-body">
+          <div style="font-size:10px;color:var(--text-dim)">Awaiting data…</div>
+        </div>
+      </div>
+
+      <!-- Leading Reversion Score -->
+      <div class="pred-section">
+        <div class="pred-section-header">
+          <span>Leading Reversion Score</span>
+          <span style="font-size:8px;color:var(--text-dim)" id="pred-rev-status">—</span>
+        </div>
+        <div class="pred-section-body" id="pred-rev-body">
+          <div style="font-size:10px;color:var(--text-dim)">Need 13+ non-zero spins to compute reversion score…</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="pred-side">
+
+      <!-- Final Coded Verdict -->
+      <div class="pred-section" style="border-color:var(--gold);">
+        <div class="pred-section-header" style="background:rgba(201,168,76,0.08);">
+          <span>Coded Verdict</span>
+          <span style="font-size:8px;color:var(--gold)">ENTERTAINMENT ONLY</span>
+        </div>
+        <div class="pred-section-body" id="pred-verdict-body">
+          <div style="text-align:center;padding:12px 0;">
+            <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:var(--text-dim);margin-bottom:4px;" id="pred-verdict-dozen">—</div>
+            <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px;" id="pred-verdict-approach">No verdict</div>
+            <div style="font-size:10px;margin-bottom:4px;" id="pred-verdict-color">—</div>
+            <div style="font-size:9px;color:var(--text-dim);" id="pred-verdict-trigger">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Monitor Accuracy -->
+      <div class="pred-section">
+        <div class="pred-section-header">
+          <span>Accuracy Monitor</span>
+        </div>
+        <div class="pred-section-body" id="pred-monitor-body">
+          <div style="text-align:center;padding:8px 0;">
+            <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:900;margin-bottom:4px;" id="pred-mon-accuracy" style="color:var(--text-dim)">—</div>
+            <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px;">Session Accuracy</div>
+          </div>
+          <div class="stat-row"><div class="stat-key">Total Verdicts</div><div class="stat-val" id="pred-mon-total">0</div></div>
+          <div class="stat-row"><div class="stat-key">Correct</div><div class="stat-val" id="pred-mon-correct" style="color:var(--green-light)">0</div></div>
+          <div class="stat-row"><div class="stat-key">Wrong</div><div class="stat-val" id="pred-mon-wrong" style="color:var(--red-light)">0</div></div>
+          <div class="stat-row"><div class="stat-key">Win Streak</div><div class="stat-val" id="pred-mon-streak">0</div></div>
+          <div class="stat-row" style="border:none"><div class="stat-key">Best Streak</div><div class="stat-val" id="pred-mon-best">0</div></div>
+          <div class="input-label" style="margin-top:10px;margin-bottom:6px;">Per-Approach Breakdown</div>
+          <div id="pred-mon-grid" style="font-size:10px;color:var(--text-dim);">No data yet</div>
+        </div>
+      </div>
+
+      <!-- Learning DB Summary -->
+      <div class="pred-section">
+        <div class="pred-section-header">
+          <span>Learning Database</span>
+        </div>
+        <div class="pred-section-body">
+          <div class="stat-row"><div class="stat-key">Total Scored</div><div class="stat-val" id="pred-learn-total">—</div></div>
+          <div class="stat-row"><div class="stat-key">Overall Accuracy</div><div class="stat-val" id="pred-learn-acc" style="color:var(--gold)">—</div></div>
+          <div class="stat-row"><div class="stat-key">Recent (last 10)</div><div class="stat-val" id="pred-learn-recent">—</div></div>
+          <div class="stat-row"><div class="stat-key">Best Approach</div><div class="stat-val" id="pred-learn-best">—</div></div>
+          <div class="stat-row" style="border:none"><div class="stat-key">Pattern Engine</div><div class="stat-val" id="pred-learn-pattern">—</div></div>
+        </div>
+      </div>
+
+      <!-- Expected Value Reminder -->
+      <div style="padding:12px 14px;background:rgba(58,123,213,0.06);border:1px solid rgba(58,123,213,0.25);border-radius:6px;font-size:10px;color:#7ab3e8;line-height:1.6;">
+        <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;color:#5a93c5;">Mathematical Reality</div>
+        European roulette house edge: <strong>2.7%</strong>. Expected value per €1 bet: <strong>−€0.027</strong>. Over time, all betting systems converge to this negative expectation regardless of strategy.
+      </div>
+
+    </div>
   </div>
 </div>
 
@@ -3720,6 +4542,425 @@ function flashWheel(n) {
   }, 450);
 }
 
+// ══════════════════════════════════════════════════════════════
+// BANKROLL TRACKER
+// ══════════════════════════════════════════════════════════════
+const BANKROLL_KEY = 'roulette-bankroll';
+
+function loadBankroll() {
+  try {
+    const s = localStorage.getItem(BANKROLL_KEY);
+    return s ? JSON.parse(s) : { balance: 0, buyins: 0, totalWon: 0, totalLost: 0, wins: 0, losses: 0, log: [], largestWin: 0, largestLoss: 0 };
+  } catch { return { balance: 0, buyins: 0, totalWon: 0, totalLost: 0, wins: 0, losses: 0, log: [], largestWin: 0, largestLoss: 0 }; }
+}
+
+function saveBankroll(br) {
+  try { localStorage.setItem(BANKROLL_KEY, JSON.stringify(br)); } catch {}
+}
+
+let bankroll = loadBankroll();
+
+function bankrollBuyIn() {
+  const amt = parseFloat(document.getElementById('br-buyin-input').value);
+  if (!amt || amt <= 0) { showToast('Enter a valid buy-in amount'); return; }
+  bankroll.balance += amt;
+  bankroll.buyins += amt;
+  bankroll.log.push({ type: 'buyin', amount: amt, balance: bankroll.balance, time: Date.now() });
+  saveBankroll(bankroll);
+  renderBankroll();
+  showToast(`Bought in for $${amt.toFixed(2)}`);
+}
+
+function bankrollWin() {
+  const amt = parseFloat(document.getElementById('br-bet-input').value);
+  if (!amt || amt <= 0) { showToast('Enter a valid bet amount'); return; }
+  // Dozen pays 2:1, so win = 2× bet (net profit = 2× bet, keep original)
+  const winAmount = amt * 2;
+  bankroll.balance += winAmount;
+  bankroll.totalWon += winAmount;
+  bankroll.wins++;
+  if (winAmount > bankroll.largestWin) bankroll.largestWin = winAmount;
+  bankroll.log.push({ type: 'win', amount: winAmount, balance: bankroll.balance, time: Date.now() });
+  saveBankroll(bankroll);
+  renderBankroll();
+  showToast(`+$${winAmount.toFixed(2)} win recorded`);
+}
+
+function bankrollLoss() {
+  const amt = parseFloat(document.getElementById('br-bet-input').value);
+  if (!amt || amt <= 0) { showToast('Enter a valid bet amount'); return; }
+  bankroll.balance -= amt;
+  bankroll.totalLost += amt;
+  bankroll.losses++;
+  if (amt > bankroll.largestLoss) bankroll.largestLoss = amt;
+  bankroll.log.push({ type: 'loss', amount: amt, balance: bankroll.balance, time: Date.now() });
+  saveBankroll(bankroll);
+  renderBankroll();
+  showToast(`-$${amt.toFixed(2)} loss recorded`);
+}
+
+function bankrollReset() {
+  if (bankroll.log.length > 0 && !confirm('Reset bankroll tracker? This clears all transaction history.')) return;
+  bankroll = { balance: 0, buyins: 0, totalWon: 0, totalLost: 0, wins: 0, losses: 0, log: [], largestWin: 0, largestLoss: 0 };
+  saveBankroll(bankroll);
+  renderBankroll();
+  showToast('Bankroll reset');
+}
+
+function renderBankroll() {
+  const fmt = (v) => (v >= 0 ? '' : '−') + '$' + Math.abs(v).toFixed(2);
+  const b = bankroll;
+
+  const balEl = document.getElementById('br-balance');
+  if (balEl) {
+    balEl.textContent = fmt(b.balance);
+    balEl.style.color = b.balance > 0 ? 'var(--green-light)' : b.balance < 0 ? 'var(--red-light)' : 'var(--text-dim)';
+  }
+
+  const netPL = b.totalWon - b.totalLost;
+  const plEl = document.getElementById('br-pl');
+  if (plEl) {
+    plEl.textContent = 'P&L: ' + (netPL >= 0 ? '+' : '') + fmt(netPL);
+    plEl.style.color = netPL > 0 ? 'var(--green-light)' : netPL < 0 ? 'var(--red-light)' : 'var(--text-dim)';
+  }
+
+  const txt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  txt('br-wins', b.wins);
+  txt('br-losses', b.losses);
+  const totalBets = b.wins + b.losses;
+  txt('br-winrate', totalBets > 0 ? (b.wins / totalBets * 100).toFixed(1) + '%' : '—');
+  txt('br-total-buyin', '$' + b.buyins.toFixed(0));
+  txt('br-total-won', '+$' + b.totalWon.toFixed(0));
+  txt('br-total-lost', '−$' + b.totalLost.toFixed(0));
+  const netEl = document.getElementById('br-net-pl');
+  if (netEl) {
+    netEl.textContent = (netPL >= 0 ? '+' : '') + fmt(netPL);
+    netEl.style.color = netPL > 0 ? 'var(--green-light)' : netPL < 0 ? 'var(--red-light)' : 'var(--text-dim)';
+  }
+  txt('br-largest-win', b.largestWin > 0 ? '+$' + b.largestWin.toFixed(0) : '—');
+  txt('br-largest-loss', b.largestLoss > 0 ? '−$' + b.largestLoss.toFixed(0) : '—');
+
+  // Transaction log (most recent first)
+  const logEl = document.getElementById('br-log');
+  if (logEl) {
+    if (b.log.length === 0) {
+      logEl.innerHTML = '<span style="font-size:10px;color:var(--text-dim)">No transactions yet. Buy in to start tracking.</span>';
+    } else {
+      logEl.innerHTML = b.log.slice().reverse().slice(0, 50).map(entry => {
+        const typeClass = entry.type === 'win' ? 'ble-win' : entry.type === 'loss' ? 'ble-loss' : 'ble-buyin';
+        const label = entry.type === 'buyin' ? 'BUY IN' : entry.type === 'win' ? 'WIN' : 'LOSS';
+        const sign = entry.type === 'loss' ? '−' : '+';
+        const time = new Date(entry.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `<div class="bankroll-log-entry">
+          <span class="ble-type ${typeClass}">${label}</span>
+          <span style="color:${entry.type === 'win' ? 'var(--green-light)' : entry.type === 'loss' ? 'var(--red-light)' : 'var(--gold)'}">${sign}$${entry.amount.toFixed(2)}</span>
+          <span style="color:var(--text-dim)">${fmt(entry.balance)}</span>
+          <span style="color:var(--text-dim);font-size:9px;">${time}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// OBSERVER TAB — Render
+// ══════════════════════════════════════════════════════════════
+let _obsWindow = 13; // default observation window
+
+function setObsWindow(n, btn) {
+  _obsWindow = n;
+  document.querySelectorAll('.obs-window-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderObserverTab();
+}
+
+function renderObserverTab() {
+  const nonZero = getNonZeroSpins(history);
+  const window = _obsWindow > 0 ? nonZero.slice(-_obsWindow) : nonZero;
+  const N = window.length;
+  const label = _obsWindow > 0 ? `(last ${_obsWindow} non-zero)` : '(all non-zero spins)';
+  const labelEl = document.getElementById('obs-window-label');
+  if (labelEl) labelEl.textContent = label;
+
+  // Dozen counts
+  const { d1, d2, d3 } = countDozens(window);
+  const counts = [d1, d2, d3];
+  const expected = N / 3;
+
+  ['d1', 'd2', 'd3'].forEach((key, i) => {
+    const countEl = document.getElementById(`obs-${key}-count`);
+    const pctEl   = document.getElementById(`obs-${key}-pct`);
+    const expEl   = document.getElementById(`obs-${key}-exp`);
+    const barEl   = document.getElementById(`obs-${key}-bar`);
+    if (countEl) countEl.textContent = N > 0 ? counts[i] : '—';
+    if (pctEl)   pctEl.textContent   = N > 0 ? (counts[i] / N * 100).toFixed(1) + '%' : '—';
+    if (expEl)   expEl.textContent   = N > 0 ? 'Expected: ' + expected.toFixed(1) : 'Expected: —';
+    if (barEl)   barEl.style.width   = N > 0 ? (counts[i] / N * 100) + '%' : '0%';
+  });
+
+  // Shannon entropy
+  const entropyEl = document.getElementById('obs-entropy-val');
+  const entropyBar = document.getElementById('obs-entropy-bar');
+  const entropyDesc = document.getElementById('obs-entropy-desc');
+  if (N >= 3) {
+    const probs = counts.map(c => c / N);
+    const H = -probs.reduce((s, p) => s + (p > 0 ? p * Math.log(p) : 0), 0);
+    const Hnorm = Math.log(3) > 0 ? H / Math.log(3) : 0;
+    if (entropyEl) { entropyEl.textContent = Hnorm.toFixed(4); entropyEl.style.color = Hnorm > 0.9 ? 'var(--green-light)' : Hnorm > 0.7 ? 'var(--gold)' : 'var(--red-light)'; }
+    if (entropyBar) entropyBar.style.width = (Hnorm * 100) + '%';
+    if (entropyDesc) entropyDesc.textContent = Hnorm > 0.95 ? 'Near-uniform distribution (high entropy)' : Hnorm > 0.8 ? 'Mild concentration in one or two dozens' : Hnorm > 0.6 ? 'Noticeable imbalance across dozens' : 'Strong concentration — one dozen dominates';
+  } else {
+    if (entropyEl) { entropyEl.textContent = '—'; entropyEl.style.color = 'var(--text-dim)'; }
+    if (entropyBar) entropyBar.style.width = '0%';
+    if (entropyDesc) entropyDesc.textContent = 'Need 3+ non-zero spins to compute entropy.';
+  }
+
+  // Distortion Index (on current window)
+  const diEl = document.getElementById('obs-di-val');
+  const diBar = document.getElementById('obs-di-bar');
+  const diDesc = document.getElementById('obs-di-desc');
+  if (N >= 3) {
+    const dev = counts.reduce((s, c) => s + Math.abs(c - expected), 0);
+    const di = parseFloat(((dev / N) * 10).toFixed(2));
+    if (diEl) { diEl.textContent = di.toFixed(2); diEl.style.color = di <= 3 ? 'var(--green-light)' : di <= 6 ? 'var(--gold)' : 'var(--red-light)'; }
+    if (diBar) diBar.style.width = Math.min(di / 10 * 100, 100) + '%';
+    if (diDesc) diDesc.textContent = di <= 2 ? 'Very low distortion — near-uniform' : di <= 4 ? 'Mild distortion — slight imbalance' : di <= 6 ? 'Moderate distortion — noticeable skew' : 'High distortion — significant concentration';
+  } else {
+    if (diEl) { diEl.textContent = '—'; diEl.style.color = 'var(--text-dim)'; }
+    if (diBar) diBar.style.width = '0%';
+    if (diDesc) diDesc.textContent = 'Need 3+ non-zero spins.';
+  }
+
+  // Chi-squared
+  const chiEl = document.getElementById('obs-chi-val');
+  const chiBadge = document.getElementById('obs-chi-badge');
+  const chiDesc = document.getElementById('obs-chi-desc');
+  if (N >= 6) {
+    const chi2 = counts.reduce((s, c) => s + Math.pow(c - expected, 2) / expected, 0);
+    if (chiEl) { chiEl.textContent = chi2.toFixed(3); chiEl.style.color = chi2 > 5.991 ? 'var(--red-light)' : chi2 > 4.605 ? 'var(--gold)' : 'var(--text-dim)'; }
+    if (chiBadge) {
+      if (chi2 > 5.991) { chiBadge.textContent = 'Significant (p<0.05)'; chiBadge.className = 'sig-badge sig-significant'; }
+      else if (chi2 > 4.605) { chiBadge.textContent = 'Marginal (p<0.10)'; chiBadge.className = 'sig-badge sig-marginal'; }
+      else { chiBadge.textContent = 'Not significant'; chiBadge.className = 'sig-badge sig-none'; }
+    }
+    if (chiDesc) chiDesc.textContent = chi2 > 5.991 ? 'Distribution differs significantly from uniform — but this does NOT predict future spins.' : 'Distribution is consistent with random uniform distribution.';
+  } else {
+    if (chiEl) { chiEl.textContent = '—'; chiEl.style.color = 'var(--text-dim)'; }
+    if (chiBadge) { chiBadge.textContent = '—'; chiBadge.className = 'sig-badge sig-none'; }
+    if (chiDesc) chiDesc.textContent = 'Need 6+ non-zero spins for chi-squared test.';
+  }
+
+  // Zero frequency
+  const allWindow = _obsWindow > 0 ? history.slice(-(_obsWindow + Math.ceil(_obsWindow * 0.03))) : history;
+  const zeroCount = allWindow.filter(s => s === 0).length;
+  const totalInWindow = allWindow.length;
+  const txt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  txt('obs-zero-count', totalInWindow > 0 ? zeroCount : '—');
+  txt('obs-zero-pct', totalInWindow > 0 ? (zeroCount / totalInWindow * 100).toFixed(1) + '%' : '—');
+  txt('obs-zero-exp', totalInWindow > 0 ? (1 / 37 * 100).toFixed(1) + '%' : '—');
+
+  // Render bankroll
+  renderBankroll();
+}
+
+// ══════════════════════════════════════════════════════════════
+// PREDICTION ENGINE TAB — Render
+// ══════════════════════════════════════════════════════════════
+function renderPredictionTab() {
+  const nonZero = getNonZeroSpins(history);
+  const DOZEN_CLASSES = { 1: 'frame-d1', 2: 'frame-d2', 3: 'frame-d3' };
+
+  // Frame visual (13 non-zero)
+  const fv = document.getElementById('pred-frame-visual');
+  if (fv) {
+    if (nonZero.length < 13) {
+      fv.innerHTML = `<span style="font-size:10px;color:var(--text-dim)">Need ${13 - nonZero.length} more non-zero spins (${nonZero.length}/13)…</span>`;
+    } else {
+      const frame13 = nonZero.slice(-13);
+      fv.innerHTML = frame13.map((n, i) => {
+        const d = getDozen(n);
+        const cls = d ? DOZEN_CLASSES[d] : 'frame-z';
+        return `<div class="frame-slot"><div class="frame-chip ${cls}">${n}</div><div class="frame-idx">${i + 1}</div></div>`;
+      }).join('');
+    }
+  }
+
+  // Pattern Consensus
+  const patResult = detectAllPatterns(history);
+  const consensusBody = document.getElementById('pred-consensus-body');
+  const consensusStatus = document.getElementById('pred-consensus-status');
+  if (patResult.ready && consensusBody) {
+    const c = patResult.consensus;
+    const maxVote = Math.max(c.allVotes.D1, c.allVotes.D2, c.allVotes.D3) || 1;
+    const colors = { D1: 'var(--d1)', D2: 'var(--d2)', D3: 'var(--d3)' };
+    if (consensusStatus) consensusStatus.textContent = `${patResult.sequenceLength} spins analyzed`;
+    consensusBody.innerHTML = `
+      <div style="text-align:center;margin-bottom:12px;">
+        <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:${colors[c.predictedDozen]};margin-bottom:2px;">${c.predictedDozen}</div>
+        <div style="font-size:10px;color:var(--text-dim);">Consensus Score: ${(c.score * 100).toFixed(1)}% · Spread: ${(c.spread * 100).toFixed(1)}%</div>
+      </div>
+      <div class="input-label" style="margin-bottom:8px;">Vote Distribution</div>
+      ${['D1', 'D2', 'D3'].map(d => `
+        <div class="pred-vote-bar">
+          <span class="pred-vote-label" style="color:${colors[d]}">${d}</span>
+          <div class="pred-vote-track"><div class="pred-vote-fill" style="width:${(c.allVotes[d] / maxVote * 100).toFixed(1)}%;background:${colors[d]}"></div></div>
+          <span class="pred-vote-pct">${(c.allVotes[d]).toFixed(2)}</span>
+        </div>
+      `).join('')}`;
+  } else if (consensusBody) {
+    if (consensusStatus) consensusStatus.textContent = 'Awaiting data';
+    consensusBody.innerHTML = `<div style="font-size:10px;color:var(--text-dim)">${patResult.reason || 'Need 8+ non-zero spins…'}</div>`;
+  }
+
+  // Markov Chain
+  const markovBody = document.getElementById('pred-markov-body');
+  const markovStatus = document.getElementById('pred-markov-status');
+  if (patResult.ready && markovBody) {
+    const m = patResult.markov;
+    const colors = { D1: 'var(--d1)', D2: 'var(--d2)', D3: 'var(--d3)' };
+    if (markovStatus) markovStatus.textContent = `from ${m.lastState}`;
+    const row = m.matrix[m.lastState] || { D1: 0.333, D2: 0.333, D3: 0.333 };
+    markovBody.innerHTML = `
+      <div style="margin-bottom:8px;font-size:10px;color:var(--text-dim);">Transition probabilities from <strong style="color:${colors[m.lastState]}">${m.lastState}</strong>:</div>
+      ${['D1', 'D2', 'D3'].map(d => `
+        <div class="pred-vote-bar">
+          <span class="pred-vote-label" style="color:${colors[d]}">${d}</span>
+          <div class="pred-vote-track"><div class="pred-vote-fill" style="width:${(row[d] * 100).toFixed(1)}%;background:${colors[d]}"></div></div>
+          <span class="pred-vote-pct">${(row[d] * 100).toFixed(1)}%</span>
+        </div>
+      `).join('')}
+      <div style="margin-top:8px;font-size:10px;">Prediction: <strong style="color:${colors[m.prediction]}">${m.prediction}</strong> (${(m.confidence * 100).toFixed(1)}% confidence)</div>`;
+  } else if (markovBody) {
+    if (markovStatus) markovStatus.textContent = '—';
+    markovBody.innerHTML = '<div style="font-size:10px;color:var(--text-dim)">Awaiting data…</div>';
+  }
+
+  // N-Gram Analysis
+  const ngramBody = document.getElementById('pred-ngram-body');
+  if (patResult.ready && ngramBody) {
+    const ng = patResult.ngrams;
+    ngramBody.innerHTML = `
+      <div class="input-label" style="margin-bottom:6px;">Top Bigrams (${ng.bigrams.total} total)</div>
+      ${ng.bigrams.top5.map(b => `<div style="display:flex;justify-content:space-between;font-size:10px;padding:2px 0;border-bottom:1px solid var(--border);"><span style="color:var(--text)">${b.pattern.replace(',', ' → ')}</span><span style="color:var(--text-dim)">${b.count}×</span></div>`).join('')}
+      <div class="input-label" style="margin-top:12px;margin-bottom:6px;">Top Trigrams (${ng.trigrams.total} total)</div>
+      ${ng.trigrams.top5.map(t => `<div style="display:flex;justify-content:space-between;font-size:10px;padding:2px 0;border-bottom:1px solid var(--border);"><span style="color:var(--text)">${t.pattern.replace(/,/g, ' → ')}</span><span style="color:var(--text-dim)">${t.count}×</span></div>`).join('')}`;
+  } else if (ngramBody) {
+    ngramBody.innerHTML = '<div style="font-size:10px;color:var(--text-dim)">Awaiting data…</div>';
+  }
+
+  // Cycle + Alternation + Streaks
+  const cycleBody = document.getElementById('pred-cycle-body');
+  if (patResult.ready && cycleBody) {
+    const cyc = patResult.cycles;
+    const alt = patResult.alternation;
+    const str = patResult.streaks;
+    cycleBody.innerHTML = `
+      <div class="input-label" style="margin-bottom:6px;">Cycle Detection</div>
+      <div class="stat-row"><div class="stat-key">Cycle Found</div><div class="stat-val" style="color:${cyc.detected ? 'var(--green-light)' : 'var(--text-dim)'}">${cyc.detected ? 'YES (len ' + cyc.cycleLength + ')' : 'No'}</div></div>
+      ${cyc.detected ? `<div class="stat-row"><div class="stat-key">Pattern</div><div class="stat-val">${cyc.bestCycle.join(' → ')}</div></div><div class="stat-row"><div class="stat-key">Strength</div><div class="stat-val">${(cyc.strength * 100).toFixed(0)}%</div></div>` : ''}
+      <div class="input-label" style="margin-top:12px;margin-bottom:6px;">Alternation</div>
+      <div class="stat-row"><div class="stat-key">Detected</div><div class="stat-val" style="color:${alt.detected ? 'var(--gold)' : 'var(--text-dim)'}">${alt.detected ? alt.type : 'None'}</div></div>
+      ${alt.detected ? `<div class="stat-row"><div class="stat-key">Strength</div><div class="stat-val">${(alt.strength * 100).toFixed(0)}%</div></div>` : ''}
+      <div class="input-label" style="margin-top:12px;margin-bottom:6px;">Streak Analysis</div>
+      <div class="stat-row"><div class="stat-key">Current Streak</div><div class="stat-val">${str.currentStreak.dozen} × ${str.currentStreak.length}</div></div>
+      <div class="stat-row"><div class="stat-key">Longest Streak</div><div class="stat-val">${str.longestStreak.dozen} × ${str.longestStreak.length}</div></div>`;
+  } else if (cycleBody) {
+    cycleBody.innerHTML = '<div style="font-size:10px;color:var(--text-dim)">Awaiting data…</div>';
+  }
+
+  // Leading Reversion Score
+  const revBody = document.getElementById('pred-rev-body');
+  const revStatus = document.getElementById('pred-rev-status');
+  if (nonZero.length >= 13) {
+    const revScore = typeof computeReversionLeadingScore === 'function' ? computeReversionLeadingScore(history) : null;
+    if (revScore && revBody) {
+      if (revStatus) revStatus.textContent = `Score: ${revScore.score}/100`;
+      const scoreColor = revScore.score >= 70 ? 'var(--red-light)' : revScore.score >= 40 ? 'var(--gold)' : 'var(--green-light)';
+      const gaugeColor = revScore.score >= 70 ? 'linear-gradient(90deg,#c9a84c,#c0392b)' : revScore.score >= 40 ? 'linear-gradient(90deg,#27ae60,#c9a84c)' : 'var(--green-light)';
+      revBody.innerHTML = `
+        <div style="text-align:center;margin-bottom:8px;">
+          <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:${scoreColor}">${revScore.score}</div>
+          <div style="font-size:10px;color:var(--text-dim)">/ 100</div>
+        </div>
+        <div class="rev-gauge-container"><div class="rev-gauge-fill" style="width:${revScore.score}%;background:${gaugeColor}"></div></div>
+        <div class="rev-gauge-markers"><span>0 (calm)</span><span>50</span><span>100 (extreme signal)</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;">
+          ${revScore.components ? Object.entries(revScore.components).map(([k, v]) =>
+            `<div class="stat-row" style="padding:3px 0"><div class="stat-key">${k}</div><div class="stat-val" style="font-size:11px">${typeof v === 'number' ? v.toFixed ? v.toFixed(1) : v : v}</div></div>`
+          ).join('') : ''}
+        </div>
+        ${revScore.weakestDozen ? `<div style="margin-top:8px;font-size:10px;color:var(--text-dim)">Weakest dozen: <strong style="color:var(--gold)">D${revScore.weakestDozen}</strong> (reversion candidate)</div>` : ''}`;
+    }
+  } else if (revBody) {
+    if (revStatus) revStatus.textContent = '—';
+    revBody.innerHTML = `<div style="font-size:10px;color:var(--text-dim)">Need ${13 - nonZero.length} more non-zero spins for reversion analysis…</div>`;
+  }
+
+  // Coded Verdict
+  const verdictDozen = document.getElementById('pred-verdict-dozen');
+  const verdictApproach = document.getElementById('pred-verdict-approach');
+  const verdictColor = document.getElementById('pred-verdict-color');
+  const verdictTrigger = document.getElementById('pred-verdict-trigger');
+  if (typeof computeCodedVerdict === 'function' && nonZero.length >= 12) {
+    const v = computeCodedVerdict(history);
+    if (v && verdictDozen) {
+      const colors = { 'D1': 'var(--d1)', 'D2': 'var(--d2)', 'D3': 'var(--d3)' };
+      verdictDozen.textContent = v.recommendDozen || '—';
+      verdictDozen.style.color = colors[v.recommendDozen] || 'var(--text-dim)';
+      if (verdictApproach) verdictApproach.textContent = v.approach || 'No verdict';
+      if (verdictColor) {
+        verdictColor.textContent = v.colorRecommendation ? `Color: ${v.colorRecommendation} (${(v.colorConfidence * 100).toFixed(0)}%)` : '—';
+        verdictColor.style.color = v.colorRecommendation === 'RED' ? 'var(--red-light)' : v.colorRecommendation === 'BLACK' ? '#aaa' : 'var(--text-dim)';
+      }
+      if (verdictTrigger) verdictTrigger.textContent = v.trigger || '';
+    }
+  } else {
+    if (verdictDozen) { verdictDozen.textContent = '—'; verdictDozen.style.color = 'var(--text-dim)'; }
+    if (verdictApproach) verdictApproach.textContent = 'Need 12+ non-zero spins';
+  }
+
+  // Accuracy Monitor
+  const monStats = typeof computeAIMonitorStats === 'function' ? computeAIMonitorStats() : null;
+  const monAccEl = document.getElementById('pred-mon-accuracy');
+  if (monStats && monStats.total > 0) {
+    const acc = (monStats.correct / monStats.total * 100).toFixed(1);
+    const accColor = parseFloat(acc) >= 40 ? 'var(--green-light)' : parseFloat(acc) >= 30 ? 'var(--gold)' : 'var(--red-light)';
+    if (monAccEl) { monAccEl.textContent = acc + '%'; monAccEl.style.color = accColor; }
+    const t = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    t('pred-mon-total', monStats.total);
+    t('pred-mon-correct', monStats.correct);
+    t('pred-mon-wrong', monStats.wrong);
+    t('pred-mon-streak', monStats.currentStreak >= 0 ? '+' + monStats.currentStreak : monStats.currentStreak);
+    t('pred-mon-best', monStats.bestStreak);
+
+    // Per-approach grid
+    const gridEl = document.getElementById('pred-mon-grid');
+    if (gridEl && monStats.approaches && Object.keys(monStats.approaches).length > 0) {
+      gridEl.innerHTML = Object.entries(monStats.approaches).map(([app, data]) => {
+        const aAcc = data.total > 0 ? (data.correct / data.total * 100).toFixed(0) : '—';
+        const aColor = data.total > 0 && data.correct / data.total >= 0.4 ? 'var(--green-light)' : data.total > 0 && data.correct / data.total >= 0.3 ? 'var(--gold)' : 'var(--text-dim)';
+        return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);font-size:10px;"><span>${app}</span><span style="color:${aColor}">${aAcc}% (${data.correct}/${data.total})</span></div>`;
+      }).join('');
+    }
+  } else {
+    if (monAccEl) { monAccEl.textContent = '—'; monAccEl.style.color = 'var(--text-dim)'; }
+  }
+
+  // Learning DB
+  const report = typeof generateLearningReport === 'function' ? generateLearningReport() : null;
+  const lt = (id, v, c) => { const e = document.getElementById(id); if (e) { e.textContent = v; if (c) e.style.color = c; } };
+  if (report) {
+    lt('pred-learn-total', report.totalPredictions + ' scored');
+    lt('pred-learn-acc', report.overallAccuracy + '%', report.overallAccuracy >= 40 ? 'var(--green-light)' : 'var(--gold)');
+    lt('pred-learn-recent', report.recentAccuracy + '%');
+    lt('pred-learn-best', report.bestApproach ? `${report.bestApproach.approach} (${report.bestApproach.accuracy}%)` : 'N/A');
+    lt('pred-learn-pattern', report.patternEngineAccuracy !== null ? report.patternEngineAccuracy + '%' : 'N/A');
+  } else {
+    lt('pred-learn-total', '< 3 scored');
+    lt('pred-learn-acc', '—');
+  }
+}
+
 // ─── RENDER ALL ──────────────────────────────────────────────
 function renderAll() {
   invalidateVerdictCache();  // Force fresh verdict computation for this render cycle
@@ -3734,6 +4975,8 @@ function renderAll() {
   renderStatsTab();
   renderStatusStrip();
   renderConditionsDashboard();
+  renderObserverTab();
+  renderPredictionTab();
 }
 
 // ─── RENDER HISTORY TAPE ─────────────────────────────────────
