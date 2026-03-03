@@ -2601,12 +2601,12 @@
 
 <nav class="tab-nav">
   <button class="tab-btn active"  onclick="switchTab('pattern', this)">Pattern Analysis</button>
-  <button class="tab-btn"         onclick="switchTab('observer', this)">Observer & Bankroll</button>
+  <button class="tab-btn"         onclick="switchTab('ai', this)">AI Insights</button>
   <button class="tab-btn"         onclick="switchTab('persistence', this)">Distortion Persistence</button>
+  <button class="tab-btn"         onclick="switchTab('prediction', this)">Prediction Engine</button>
+  <button class="tab-btn"         onclick="switchTab('observer', this)">Observer & Bankroll</button>
   <button class="tab-btn"         onclick="switchTab('distortion', this)">Distortion Index</button>
   <button class="tab-btn"         onclick="switchTab('stats', this)">Statistics</button>
-  <button class="tab-btn"         onclick="switchTab('prediction', this)">Prediction Engine</button>
-  <button class="tab-btn"         onclick="switchTab('ai', this)">AI Insights</button>
 </nav>
 
 <!-- ─── LIVE STATUS STRIP ─── -->
@@ -2651,13 +2651,7 @@
     <span class="ss-label">Approach</span>
     <span class="ss-pill ss-pill-inactive" id="ss-approach">—</span>
   </div>
-  <div class="ss-item">
-    <span class="ss-label">Timer</span>
-    <div class="ss-timer-wrap">
-      <span class="ss-value" id="ss-timer" style="color:var(--text-dim);font-size:11px">—</span>
-      <div class="ss-timer-minibar"><div class="ss-timer-minibar-fill" id="ss-timer-bar" style="width:0%"></div></div>
-    </div>
-  </div>
+
   <div class="ss-item">
     <span class="ss-label">AI Mon</span>
     <span class="ss-value" id="ss-aimon" style="color:var(--text-dim);font-size:11px">—</span>
@@ -3430,6 +3424,17 @@
         </div>
       </div>
 
+      <!-- Weaker Dozen to Come — 13-Frame Milestone Analysis -->
+      <div class="pred-section" style="border-color:rgba(201,168,76,0.5);">
+        <div class="pred-section-header" style="background:rgba(201,168,76,0.06);">
+          <span>Weaker Dozen to Come · 13-Frame Milestones</span>
+          <span style="font-size:8px;color:var(--gold)" id="pred-wdtc-milestone">—</span>
+        </div>
+        <div class="pred-section-body" id="pred-wdtc-body">
+          <div style="font-size:10px;color:var(--text-dim)">Add spins and check at 13, 26, 39… milestone frames…</div>
+        </div>
+      </div>
+
     </div>
 
     <div class="pred-side">
@@ -3702,113 +3707,118 @@ let aiConversationMemory = [];  // [{role:'user'|'assistant', content:'...'}]
 const MAX_MEMORY_TURNS = 6;     // Keep last 6 exchanges (12 messages)
 
 // ══════════════════════════════════════════════════════════════
-// VERDICT CONFIRMATION TIMER (6 min = 360s)
+// VERDICT TIMER — REMOVED (stubs for backward compat)
 // ══════════════════════════════════════════════════════════════
-const VERDICT_TIMER_DURATION = 360; // seconds (6 minutes)
-let _verdictTimerState = {
-  active: false,
-  startTime: 0,
-  approach: null,
-  recommendDozen: null,
-  expiredCount: 0,       // how many verdicts expired without new spin
-  intervalId: null
-};
+let _verdictTimerState = { active: false, expiredCount: 0 };
+function startVerdictTimer() {}
+function stopVerdictTimer() {}
+function tickVerdictTimer() {}
+function isVerdictExpired() { return false; }
+function getVerdictTimerRemaining() { return 0; }
 
-function startVerdictTimer(approach, recommendDozen) {
-  // Don't restart if same verdict is still active
-  if (_verdictTimerState.active &&
-      _verdictTimerState.approach === approach &&
-      _verdictTimerState.recommendDozen === recommendDozen) {
-    return; // same verdict, keep existing timer
-  }
-  stopVerdictTimer();
-  _verdictTimerState.active = true;
-  _verdictTimerState.startTime = Date.now();
-  _verdictTimerState.approach = approach;
-  _verdictTimerState.recommendDozen = recommendDozen;
-  _verdictTimerState.intervalId = setInterval(tickVerdictTimer, 1000);
-  tickVerdictTimer(); // immediate first tick
-}
+// ══════════════════════════════════════════════════════════════
+// WEAKER DOZEN TO COME — 13-Frame Milestone Analysis
+// ══════════════════════════════════════════════════════════════
 
-function stopVerdictTimer() {
-  if (_verdictTimerState.intervalId) {
-    clearInterval(_verdictTimerState.intervalId);
-    _verdictTimerState.intervalId = null;
-  }
-  _verdictTimerState.active = false;
-}
+/**
+ * Analyzes non-zero spins at 13-frame multiples (13, 26, 39, …).
+ * Identifies the weakest dozen in each 13-spin frame, and tracks
+ * whether the dominant dozen has hit its max limit (8 of 13).
+ *
+ * Logic:
+ *   - In each 13-spin frame, expected count/dozen = 4.33
+ *   - The dominant dozen can keep coming until it hits MAX_DOMINANT = 8
+ *   - Once dominant reaches 8, the weaker dozen becomes priority candidate
+ *   - The weaker dozen is always the "second priority" — it's the one
+ *     that is statistically most underrepresented in the frame
+ *
+ * Returns: { frames[], currentFrame, nextPrediction, milestone }
+ */
+const WDTC_MAX_DOMINANT = 8; // max hits before weak dozen gets priority
 
-function tickVerdictTimer() {
-  if (!_verdictTimerState.active) return;
-  const elapsed = Math.floor((Date.now() - _verdictTimerState.startTime) / 1000);
-  const remaining = Math.max(0, VERDICT_TIMER_DURATION - elapsed);
-  const pct = (remaining / VERDICT_TIMER_DURATION) * 100;
+function analyzeWeakerDozenToCome(hist) {
+  const nonZero = getNonZeroSpins(hist);
+  if (nonZero.length < 13) return { ready: false, framesAvailable: 0, need: 13 - nonZero.length };
 
-  // Update status strip timer
-  const timerEl = document.getElementById('ss-timer');
-  const barEl = document.getElementById('ss-timer-bar');
-  if (timerEl && barEl) {
-    if (remaining <= 0) {
-      timerEl.textContent = 'EXPIRED';
-      timerEl.style.color = 'var(--red-light)';
-      barEl.style.width = '0%';
-      barEl.style.background = 'var(--red-light)';
-    } else {
-      const mins = Math.floor(remaining / 60);
-      const secs = remaining % 60;
-      timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-      timerEl.style.color = remaining <= 60 ? 'var(--red-light)' : remaining <= 180 ? 'var(--gold)' : 'var(--green-light)';
-      barEl.style.width = pct.toFixed(1) + '%';
-      barEl.style.background = remaining <= 60 ? 'var(--red-light)' : remaining <= 180 ? 'var(--gold)' : 'var(--green-light)';
-    }
-  }
+  const numFullFrames = Math.floor(nonZero.length / 13);
+  const frames = [];
 
-  // Update conditions panel timer
-  const cpTimerEl = document.getElementById('cp-aimon-timer');
-  if (cpTimerEl) {
-    if (remaining <= 0) {
-      cpTimerEl.textContent = `EXPIRED — ${_verdictTimerState.approach} → D${_verdictTimerState.recommendDozen}`;
-      cpTimerEl.style.color = 'var(--red-light)';
-    } else {
-      const mins = Math.floor(remaining / 60);
-      const secs = remaining % 60;
-      cpTimerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')} remaining (${_verdictTimerState.approach})`;
-      cpTimerEl.style.color = remaining <= 60 ? 'var(--red-light)' : remaining <= 180 ? 'var(--gold)' : 'var(--green-light)';
-    }
+  for (let f = 0; f < numFullFrames; f++) {
+    const start = f * 13;
+    const frameSpins = nonZero.slice(start, start + 13);
+    const { d1, d2, d3 } = countDozens(frameSpins);
+    const counts = [
+      { dozen: 'D1', count: d1 },
+      { dozen: 'D2', count: d2 },
+      { dozen: 'D3', count: d3 }
+    ];
+    const sorted = [...counts].sort((a, b) => b.count - a.count);
+    const dominant = sorted[0];
+    const middle   = sorted[1];
+    const weakest  = sorted[2];
+    const dominantMaxed = dominant.count >= WDTC_MAX_DOMINANT;
+
+    frames.push({
+      frameNum: f + 1,
+      milestone: (f + 1) * 13,
+      counts: { D1: d1, D2: d2, D3: d3 },
+      dominant,
+      middle,
+      weakest,
+      dominantMaxed,
+      // If dominant is maxed, weak dozen is primary candidate; otherwise it's secondary
+      prediction: dominantMaxed ? weakest.dozen : dominant.dozen,
+      secondPriority: dominantMaxed ? dominant.dozen : weakest.dozen,
+      reasoning: dominantMaxed
+        ? `${dominant.dozen} hit ${dominant.count}/13 (≥${WDTC_MAX_DOMINANT} limit) → ${weakest.dozen} (weakest at ${weakest.count}/13) promoted to PRIORITY`
+        : `${dominant.dozen} leads at ${dominant.count}/13 (under limit ${WDTC_MAX_DOMINANT}) → stays primary. ${weakest.dozen} (${weakest.count}/13) is second priority`
+    });
   }
 
-  // Handle expiry
-  if (remaining <= 0) {
-    _verdictTimerState.expiredCount++;
-    stopVerdictTimer();
-    // Dim the approach pill on expiry
-    const approachEl = document.getElementById('ss-approach');
-    if (approachEl) {
-      approachEl.className = 'ss-pill ss-pill-inactive';
-      approachEl.textContent = `EXPIRED (was ${_verdictTimerState.approach})`;
-    }
-    // Update expired count display
-    const expEl = document.getElementById('cp-aimon-expired');
-    if (expEl) {
-      expEl.textContent = _verdictTimerState.expiredCount + ' this session';
-      expEl.style.color = 'var(--red-light)';
-    }
+  // Current partial frame (if any spins past last full frame)
+  const lastFullEnd = numFullFrames * 13;
+  const remainder = nonZero.slice(lastFullEnd);
+  let currentPartial = null;
+  if (remainder.length > 0) {
+    const { d1, d2, d3 } = countDozens(remainder);
+    const counts = [
+      { dozen: 'D1', count: d1 },
+      { dozen: 'D2', count: d2 },
+      { dozen: 'D3', count: d3 }
+    ];
+    const sorted = [...counts].sort((a, b) => b.count - a.count);
+    currentPartial = {
+      spinsIn: remainder.length,
+      spinsRemaining: 13 - remainder.length,
+      nextMilestone: (numFullFrames + 1) * 13,
+      counts: { D1: d1, D2: d2, D3: d3 },
+      dominant: sorted[0],
+      weakest: sorted[2]
+    };
   }
-}
 
-function isVerdictExpired() {
-  if (!_verdictTimerState.active) {
-    // If timer was active before and ran out, it's expired
-    return _verdictTimerState.startTime > 0 && !_verdictTimerState.intervalId;
+  // Build next-spin prediction based on LATEST COMPLETE frame
+  const lastFrame = frames.length > 0 ? frames[frames.length - 1] : null;
+  let nextPrediction = null;
+  if (lastFrame) {
+    nextPrediction = {
+      primary: lastFrame.prediction,
+      secondary: lastFrame.secondPriority,
+      dominantMaxed: lastFrame.dominantMaxed,
+      reasoning: lastFrame.reasoning
+    };
   }
-  const elapsed = Math.floor((Date.now() - _verdictTimerState.startTime) / 1000);
-  return elapsed >= VERDICT_TIMER_DURATION;
-}
 
-function getVerdictTimerRemaining() {
-  if (!_verdictTimerState.active) return 0;
-  const elapsed = Math.floor((Date.now() - _verdictTimerState.startTime) / 1000);
-  return Math.max(0, VERDICT_TIMER_DURATION - elapsed);
+  return {
+    ready: true,
+    totalNonZero: nonZero.length,
+    framesAvailable: numFullFrames,
+    currentMilestone: numFullFrames * 13,
+    nextMilestone: (numFullFrames + 1) * 13,
+    frames,
+    currentPartial,
+    nextPrediction
+  };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4958,6 +4968,68 @@ function renderPredictionTab() {
   } else {
     lt('pred-learn-total', '< 3 scored');
     lt('pred-learn-acc', '—');
+  }
+
+  /* ── Weaker Dozen to Come · 13-Frame Milestones ── */
+  const wdtcBody = document.getElementById('pred-wdtc-body');
+  const wdtcMile = document.getElementById('pred-wdtc-milestone');
+  if (wdtcBody) {
+    const wdtc = analyzeWeakerDozenToCome(history);
+    if (!wdtc || wdtc.frames.length === 0) {
+      wdtcBody.innerHTML = '<span style="color:var(--text-dim)">Add spins and check at 13, 26, 39… milestones</span>';
+      if (wdtcMile) wdtcMile.textContent = '—';
+    } else {
+      const dClr = { D1: 'var(--red-light)', D2: 'var(--blue-light)', D3: 'var(--green-light)' };
+      let html = '';
+
+      /* Show each completed frame */
+      wdtc.frames.forEach((f, idx) => {
+        const frameNum = idx + 1;
+        const spinRange = `${idx * 13 + 1}–${(idx + 1) * 13}`;
+        const maxedTag = f.dominantMaxed ? ' <span style="color:var(--gold);font-weight:700">⚡ MAX 8</span>' : '';
+        html += `<div style="margin-bottom:8px;padding:8px;background:var(--surface-2);border-radius:8px;">`;
+        html += `<div style="font-weight:600;font-size:12px;margin-bottom:4px;">Frame ${frameNum} · Spins ${spinRange}${maxedTag}</div>`;
+        html += `<div style="display:flex;gap:12px;font-size:12px;">`;
+        html += `<span style="color:${dClr[f.dominant] || '#fff'}">🔥 ${f.dominant}: ${f.counts[f.dominant]}</span>`;
+        html += `<span style="color:${dClr[f.middle] || '#aaa'}">➖ ${f.middle}: ${f.counts[f.middle]}</span>`;
+        html += `<span style="color:${dClr[f.weakest] || '#888'}">❄️ ${f.weakest}: ${f.counts[f.weakest]}</span>`;
+        html += `</div>`;
+        html += `</div>`;
+      });
+
+      /* Show current partial frame */
+      if (wdtc.currentPartial && wdtc.currentPartial.size > 0) {
+        const cp = wdtc.currentPartial;
+        html += `<div style="margin-bottom:8px;padding:8px;background:var(--surface-1);border-radius:8px;border:1px dashed var(--border);">`;
+        html += `<div style="font-weight:600;font-size:12px;margin-bottom:4px;color:var(--text-dim)">Current Frame · ${cp.size}/13 spins</div>`;
+        html += `<div style="display:flex;gap:12px;font-size:12px;">`;
+        html += `<span>D1:${cp.counts.D1} D2:${cp.counts.D2} D3:${cp.counts.D3}</span>`;
+        html += `</div></div>`;
+      }
+
+      /* Prediction summary */
+      if (wdtc.prediction) {
+        const p = wdtc.prediction;
+        html += `<div style="margin-top:8px;padding:10px;background:var(--surface-3);border-radius:8px;border-left:3px solid var(--gold);">`;
+        html += `<div style="font-weight:700;font-size:13px;margin-bottom:4px;">🎯 Prediction</div>`;
+        html += `<div style="font-size:12px;">`;
+        html += `<span style="color:${dClr[p.primary] || '#fff'}">1st Priority: <b>${p.primary}</b></span>`;
+        if (p.secondary) {
+          html += ` · <span style="color:${dClr[p.secondary] || '#aaa'}">2nd Priority: <b>${p.secondary}</b></span>`;
+        }
+        html += `</div>`;
+        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.reason}</div>`;
+        html += `</div>`;
+      }
+
+      wdtcBody.innerHTML = html;
+      if (wdtcMile) {
+        const totalNonZero = history.filter(n => n > 0).length;
+        const nextMilestone = (Math.floor(totalNonZero / 13) + 1) * 13;
+        const remaining = nextMilestone - totalNonZero;
+        wdtcMile.textContent = `Next: Spin ${nextMilestone} (${remaining} away)`;
+      }
+    }
   }
 }
 
@@ -8144,18 +8216,6 @@ function renderConditionsDashboard() {
 
   // AI Monitor Dashboard
   renderAIMonitor();
-
-  // Start/update verdict timer
-  const verdictForTimer = computeCodedVerdict();
-  if (verdictForTimer.approach !== 'NO_SIGNAL' && verdictForTimer.recommendDozen) {
-    startVerdictTimer(verdictForTimer.approach, verdictForTimer.recommendDozen);
-  } else {
-    stopVerdictTimer();
-    const timerEl = document.getElementById('ss-timer');
-    const barEl = document.getElementById('ss-timer-bar');
-    if (timerEl) { timerEl.textContent = '—'; timerEl.style.color = 'var(--text-dim)'; }
-    if (barEl) { barEl.style.width = '0%'; }
-  }
 }
 
 function renderAIMonitor() {
