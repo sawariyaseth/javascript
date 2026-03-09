@@ -4882,7 +4882,18 @@ function renderPredictionTab() {
   const revBody = document.getElementById('pred-rev-body');
   const revStatus = document.getElementById('pred-rev-status');
   if (nonZero.length >= 13) {
-    const revScore = typeof computeReversionLeadingScore === 'function' ? computeReversionLeadingScore(history) : null;
+    let revScore = null;
+    if (typeof computeReversionLeadingScore === 'function') {
+      const sensitivity = parseFloat(document.getElementById('sensitivity')?.value) || 5;
+      const signalMode = document.getElementById('signalMode')?.value || 'twowindow';
+      const persResult = distortionPersistence(history, sensitivity, signalMode);
+      if (persResult) {
+        const dm = persResult.metrics13 || persResult.metricsCurr;
+        const velResult = distortionVelocity(history);
+        const sigResult = distortionSignificance(history);
+        revScore = computeReversionLeadingScore(dm, velResult, sigResult, history);
+      }
+    }
     if (revScore && revBody) {
       if (revStatus) revStatus.textContent = `Score: ${revScore.score}/100`;
       const scoreColor = revScore.score >= 70 ? 'var(--red-light)' : revScore.score >= 40 ? 'var(--gold)' : 'var(--green-light)';
@@ -4945,8 +4956,8 @@ function renderPredictionTab() {
 
     // Per-approach grid
     const gridEl = document.getElementById('pred-mon-grid');
-    if (gridEl && monStats.approaches && Object.keys(monStats.approaches).length > 0) {
-      gridEl.innerHTML = Object.entries(monStats.approaches).map(([app, data]) => {
+    if (gridEl && monStats.approachBreakdown && Object.keys(monStats.approachBreakdown).length > 0) {
+      gridEl.innerHTML = Object.entries(monStats.approachBreakdown).map(([app, data]) => {
         const aAcc = data.total > 0 ? (data.correct / data.total * 100).toFixed(0) : '—';
         const aColor = data.total > 0 && data.correct / data.total >= 0.4 ? 'var(--green-light)' : data.total > 0 && data.correct / data.total >= 0.3 ? 'var(--gold)' : 'var(--text-dim)';
         return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);font-size:10px;"><span>${app}</span><span style="color:${aColor}">${aAcc}% (${data.correct}/${data.total})</span></div>`;
@@ -4990,26 +5001,26 @@ function renderPredictionTab() {
         html += `<div style="margin-bottom:8px;padding:8px;background:var(--surface-2);border-radius:8px;">`;
         html += `<div style="font-weight:600;font-size:12px;margin-bottom:4px;">Frame ${frameNum} · Spins ${spinRange}${maxedTag}</div>`;
         html += `<div style="display:flex;gap:12px;font-size:12px;">`;
-        html += `<span style="color:${dClr[f.dominant] || '#fff'}">🔥 ${f.dominant}: ${f.counts[f.dominant]}</span>`;
-        html += `<span style="color:${dClr[f.middle] || '#aaa'}">➖ ${f.middle}: ${f.counts[f.middle]}</span>`;
-        html += `<span style="color:${dClr[f.weakest] || '#888'}">❄️ ${f.weakest}: ${f.counts[f.weakest]}</span>`;
+        html += `<span style="color:${dClr[f.dominant.dozen] || '#fff'}">🔥 ${f.dominant.dozen}: ${f.dominant.count}</span>`;
+        html += `<span style="color:${dClr[f.middle.dozen] || '#aaa'}">➖ ${f.middle.dozen}: ${f.middle.count}</span>`;
+        html += `<span style="color:${dClr[f.weakest.dozen] || '#888'}">❄️ ${f.weakest.dozen}: ${f.weakest.count}</span>`;
         html += `</div>`;
         html += `</div>`;
       });
 
       /* Show current partial frame */
-      if (wdtc.currentPartial && wdtc.currentPartial.size > 0) {
+      if (wdtc.currentPartial && wdtc.currentPartial.spinsIn > 0) {
         const cp = wdtc.currentPartial;
         html += `<div style="margin-bottom:8px;padding:8px;background:var(--surface-1);border-radius:8px;border:1px dashed var(--border);">`;
-        html += `<div style="font-weight:600;font-size:12px;margin-bottom:4px;color:var(--text-dim)">Current Frame · ${cp.size}/13 spins</div>`;
+        html += `<div style="font-weight:600;font-size:12px;margin-bottom:4px;color:var(--text-dim)">Current Frame · ${cp.spinsIn}/13 spins</div>`;
         html += `<div style="display:flex;gap:12px;font-size:12px;">`;
         html += `<span>D1:${cp.counts.D1} D2:${cp.counts.D2} D3:${cp.counts.D3}</span>`;
         html += `</div></div>`;
       }
 
       /* Prediction summary */
-      if (wdtc.prediction) {
-        const p = wdtc.prediction;
+      if (wdtc.nextPrediction) {
+        const p = wdtc.nextPrediction;
         html += `<div style="margin-top:8px;padding:10px;background:var(--surface-3);border-radius:8px;border-left:3px solid var(--gold);">`;
         html += `<div style="font-weight:700;font-size:13px;margin-bottom:4px;">🎯 Prediction</div>`;
         html += `<div style="font-size:12px;">`;
@@ -5018,7 +5029,7 @@ function renderPredictionTab() {
           html += ` · <span style="color:${dClr[p.secondary] || '#aaa'}">2nd Priority: <b>${p.secondary}</b></span>`;
         }
         html += `</div>`;
-        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.reason}</div>`;
+        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${p.reasoning}</div>`;
         html += `</div>`;
       }
 
@@ -5768,7 +5779,15 @@ function computeReversionLeadingScore(dm, velResult, sigResult, hist) {
   // Threshold: ≥55 = trigger leading reversion (needs multiple converging signals)
   const shouldTrigger = score >= 55 && gap >= 5;
 
-  return { score: Math.min(score, 100), signals, weakIdx, domIdx, shouldTrigger };
+  // Build components breakdown for the UI
+  const components = {
+    'Drought Depth': weakCount === 0 ? 30 : weakCount === 1 ? 20 : (weakCount === 2 && N >= 12) ? 8 : 0,
+    'Peak Saturation': pMax >= 0.62 ? 20 : pMax >= 0.54 ? 14 : pMax >= 0.46 ? 6 : 0,
+    'Velocity': velResult ? (velResult.isCorrecting ? 20 : velResult.isDecreasing ? 14 : velResult.isStable ? 5 : 0) : 0,
+    'Gap Extremity': gap >= 8 ? 10 : gap >= 6 ? 7 : gap >= 5 ? 4 : 0
+  };
+
+  return { score: Math.min(score, 100), signals, weakIdx, domIdx, shouldTrigger, components, weakestDozen: weakIdx + 1 };
 }
 
 // ──────────────────────────────────────────────────────────────
