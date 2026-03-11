@@ -180,6 +180,10 @@
 
   .tab-btn:hover { color: var(--text); }
   .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .tab-btn[draggable="true"] { cursor: grab; }
+  .tab-btn.dragging { opacity: 0.35; cursor: grabbing; }
+  .tab-btn.drag-over-left { box-shadow: inset 3px 0 0 var(--gold); }
+  .tab-btn.drag-over-right { box-shadow: inset -3px 0 0 var(--gold); }
 
   /* ─── TAB PANELS ─── */
   .tab-panel { display: none; }
@@ -785,7 +789,7 @@
   /* ─── AI CHAT UI ─── */
   .ai-chat-layout {
     display: grid;
-    grid-template-columns: 1fr 300px;
+    grid-template-columns: var(--ai-chat-fr, 1fr) auto var(--ai-panel-w, 320px);
     height: calc(100vh - 120px);
     gap: 0;
   }
@@ -793,9 +797,39 @@
   .ai-chat-main {
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--border);
+    border-right: none;
     height: 100%;
     overflow: hidden;
+    min-width: 200px;
+  }
+
+  /* Drag handle between chat and side panel */
+  .ai-resize-handle {
+    width: 6px;
+    cursor: col-resize;
+    background: var(--border);
+    position: relative;
+    transition: background 0.15s;
+    z-index: 2;
+    flex-shrink: 0;
+  }
+  .ai-resize-handle:hover,
+  .ai-resize-handle.dragging {
+    background: var(--gold);
+  }
+  .ai-resize-handle::after {
+    content: '┇';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-dim);
+    font-size: 12px;
+    pointer-events: none;
+  }
+  .ai-resize-handle:hover::after,
+  .ai-resize-handle.dragging::after {
+    color: var(--bg);
   }
 
   .ai-chat-header {
@@ -1146,6 +1180,89 @@
     background: var(--surface);
   }
 
+  /* Config row collapse */
+  .ai-config-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.3s ease;
+  }
+  .ai-config-row.open {
+    max-height: 200px;
+    opacity: 1;
+    padding: 14px 28px;
+  }
+
+  /* Toggle buttons in header */
+  .ai-header-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .ai-toggle-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    padding: 0;
+  }
+  .ai-toggle-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .ai-toggle-btn.active { background: rgba(201,168,76,0.15); border-color: var(--gold); color: var(--gold); }
+
+  /* Side panel toggle */
+  .ai-side-panel.hidden-panel { display: none; }
+  .ai-resize-handle.hidden-panel { display: none; }
+
+  /* Drag-reorder cards */
+  .ai-conditions-card {
+    cursor: grab;
+  }
+  .ai-conditions-card:active {
+    cursor: grabbing;
+  }
+  .ai-conditions-card.dragging-card {
+    opacity: 0.25;
+    border-color: var(--gold);
+    cursor: grabbing;
+  }
+  .ai-conditions-card.drag-over-above {
+    border-top: 2px solid var(--gold);
+    margin-top: -2px;
+  }
+  .ai-conditions-card.drag-over-below {
+    border-bottom: 2px solid var(--gold);
+    margin-bottom: -2px;
+  }
+  .drag-float {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.92;
+    transform: scale(1.03) rotate(1deg);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px var(--gold);
+    border-radius: 6px;
+    transition: opacity 0.1s, transform 0.1s;
+  }
+
   .ai-action-btn {
     flex: 1;
     padding: 10px 16px;
@@ -1193,10 +1310,26 @@
     flex-direction: column;
     gap: 16px;
     overflow-y: auto;
+    max-height: calc(100vh - 120px);
+    scroll-behavior: smooth;
+    min-width: 220px;
+  }
+  /* When panel is wide enough, flow cards in a 2-col wrap */
+  .ai-side-panel.wide-panel {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    align-content: flex-start;
+  }
+  .ai-side-panel.wide-panel .ai-conditions-card {
+    width: calc(50% - 8px);
+    flex-shrink: 0;
   }
 
-  .ai-side-panel::-webkit-scrollbar { width: 4px; }
-  .ai-side-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .ai-side-panel::-webkit-scrollbar { width: 6px; }
+  .ai-side-panel::-webkit-scrollbar-track { background: transparent; }
+  .ai-side-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; transition: background 0.2s; }
+  .ai-side-panel::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 
   .ai-metric-card {
     background: var(--surface);
@@ -1288,7 +1421,17 @@
     header { padding: 16px 20px; flex-wrap: wrap; }
     .main-panel { padding: 20px; border-right: none; }
     .ai-chat-layout { grid-template-columns: 1fr; height: auto; }
-    .ai-side-panel { display: none; }
+    .ai-resize-handle { display: none; }
+    .ai-side-panel {
+      max-height: none;
+      border-top: 1px solid var(--border);
+      padding: 16px;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      align-content: flex-start;
+    }
+    .ai-side-panel .ai-conditions-card { width: calc(50% - 8px); flex-shrink: 0; }
     .ai-chat-main { height: calc(100vh - 200px); border-right: none; }
     .stats-layout { grid-template-columns: 1fr; }
     .stats-panel { border-right: none; }
@@ -1526,10 +1669,15 @@
     .streak-card-label { font-size: 8px; }
     .dozen-timeline { height: 50px; }
 
-    /* === AI Chat === */
     .ai-chat-layout { grid-template-columns: 1fr; height: auto; }
+    .ai-resize-handle { display: none; }
     .ai-chat-main { height: calc(100vh - 150px); border-right: none; }
-    .ai-side-panel { display: none; }
+    .ai-side-panel {
+      max-height: none;
+      border-top: 1px solid var(--border);
+      padding: 12px;
+    }
+    .ai-side-panel .ai-conditions-card { width: 100%; }
 
     .ai-chat-header { padding: 14px 16px 12px; }
     .ai-chat-header h3 { font-size: 15px; }
@@ -1999,6 +2147,95 @@
 
   .top-num-chip .chip-freq { font-size: 8px; opacity: 0.7; }
 
+  /* ─── FALSE SIGNAL FLASH CARDS ─── */
+  .fs-cards-tray {
+    display: flex;
+    gap: 8px;
+    padding: 10px 28px;
+    overflow-x: auto;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    scrollbar-width: thin;
+  }
+  .fs-cards-tray:empty { display: none; }
+  .fs-cards-tray::-webkit-scrollbar { height: 3px; }
+  .fs-cards-tray::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .fs-card {
+    flex: 0 0 auto;
+    min-width: 190px;
+    max-width: 260px;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: 'DM Mono', monospace;
+    transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+  .fs-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .fs-card-danger {
+    background: rgba(231,76,60,0.07);
+    border: 1px solid rgba(231,76,60,0.4);
+  }
+  .fs-card-danger::before { background: var(--red-light); }
+  .fs-card-caution {
+    background: rgba(201,168,76,0.06);
+    border: 1px solid rgba(201,168,76,0.35);
+  }
+  .fs-card-caution::before { background: var(--gold); }
+  .fs-card-ok {
+    background: rgba(39,174,96,0.05);
+    border: 1px solid rgba(39,174,96,0.3);
+  }
+  .fs-card-ok::before { background: var(--green-light); }
+
+  .fs-card-icon {
+    font-size: 16px;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .fs-card-title {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+  }
+  .fs-card-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .fs-card-danger .fs-card-value { color: var(--red-light); }
+  .fs-card-caution .fs-card-value { color: var(--gold); }
+  .fs-card-ok .fs-card-value { color: var(--green-light); }
+
+  .fs-card-detail {
+    font-size: 9px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  @keyframes fsSlideIn {
+    from { opacity: 0; transform: translateY(-8px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .fs-card { animation: fsSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+
+  @keyframes fsPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(231,76,60,0.3); }
+    50%     { box-shadow: 0 0 12px 2px rgba(231,76,60,0.15); }
+  }
+  .fs-card-danger.fs-pulse { animation: fsPulse 2s ease-in-out 2, fsSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+
   /* AI side panel conditions dashboard */
   .ai-conditions-card {
     background: var(--surface);
@@ -2018,21 +2255,55 @@
     align-items: center;
     justify-content: space-between;
     background: rgba(201,168,76,0.03);
+    cursor: pointer;
+    user-select: none;
+  }
+  .acc-header::after {
+    content: '\25B8';
+    font-size: 10px;
+    color: var(--text-dim);
+    transition: transform 0.3s ease;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .ai-conditions-card.expanded .acc-header::after {
+    transform: rotate(90deg);
   }
 
   .acc-header-title { color: var(--gold); }
 
-  .acc-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .acc-body {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    padding: 0 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transform: scale(0.95) translateY(-8px);
+    transform-origin: top center;
+    transition: max-height 0.25s cubic-bezier(0.34,1.56,0.64,1),
+                opacity 0.2s ease,
+                padding 0.25s ease,
+                transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .ai-conditions-card.expanded .acc-body {
+    max-height: 600px;
+    opacity: 1;
+    padding: 10px 12px;
+    transform: scale(1) translateY(0);
+  }
 
   .acc-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 10px;
+    min-width: 0;
   }
 
-  .acc-key { color: var(--text-dim); }
-  .acc-val { font-family: 'DM Mono', monospace; color: var(--text); font-size: 10px; }
+  .acc-key { color: var(--text-dim); white-space: nowrap; }
+  .acc-val { font-family: 'DM Mono', monospace; color: var(--text); font-size: 10px; text-align: right; word-break: break-word; min-width: 0; }
 
   .live-dot {
     width: 5px; height: 5px;
@@ -2571,6 +2842,308 @@
     .bankroll-stats-grid { grid-template-columns: 1fr 1fr; }
     .disclaimer-banner { padding: 8px 16px; flex-wrap: wrap; }
   }
+
+  /* ══════════════════════════════════════════════════════════
+     MATH SIGNALS TAB
+  ══════════════════════════════════════════════════════════ */
+  .math-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    min-height: 600px;
+  }
+  .math-col {
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .math-col:first-child { border-right: 1px solid var(--border); }
+
+  .math-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .math-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .math-card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.3px;
+  }
+  .math-card-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .math-badge-strong { background: rgba(39,174,96,0.15); color: var(--green-light); }
+  .math-badge-moderate { background: rgba(201,168,76,0.15); color: var(--gold); }
+  .math-badge-weak { background: rgba(136,136,136,0.15); color: var(--text-dim); }
+  .math-badge-alert { background: rgba(231,76,60,0.15); color: var(--red-light); }
+  .math-card-body { padding: 16px; }
+
+  /* Composite signal hero */
+  .composite-hero {
+    text-align: center;
+    padding: 20px 16px;
+  }
+  .composite-score {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .composite-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .composite-bar {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .composite-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .composite-votes {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 14px;
+    font-size: 12px;
+  }
+  .composite-vote {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .composite-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  /* Z-Score cards */
+  .zscore-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .zscore-card {
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .zscore-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 800;
+  }
+  .zscore-dozen {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+  }
+  .zscore-interp {
+    font-size: 9px;
+    margin-top: 4px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    display: inline-block;
+  }
+
+  /* Markov 3×3 grid */
+  .markov-matrix {
+    display: grid;
+    grid-template-columns: 40px 1fr 1fr 1fr;
+    gap: 1px;
+    font-size: 11px;
+  }
+  .markov-cell {
+    padding: 8px 4px;
+    text-align: center;
+    background: var(--surface2);
+    border-radius: 4px;
+  }
+  .markov-header {
+    font-weight: 700;
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+  .markov-row-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 10px;
+  }
+  .markov-highlight {
+    background: rgba(201,168,76,0.12);
+    border: 1px solid rgba(201,168,76,0.3);
+  }
+  .markov-pred-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 11px;
+  }
+
+  /* Entropy gauge */
+  .entropy-gauge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+  }
+  .entropy-ring {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .entropy-details {
+    flex: 1;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  /* EWMA bars */
+  .ewma-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ewma-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ewma-label {
+    width: 28px;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .ewma-track {
+    flex: 1;
+    height: 18px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .ewma-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+    min-width: 2px;
+  }
+  .ewma-val {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text);
+    text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  }
+  .ewma-baseline {
+    position: absolute;
+    left: 33.3%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255,255,255,0.15);
+  }
+
+  /* Bayesian posterior */
+  .bayes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .bayes-card {
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .bayes-prob {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 800;
+  }
+  .bayes-prior {
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* Signal summary */
+  .signal-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+  }
+  .signal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: var(--surface2);
+    border-radius: 6px;
+    border-left: 3px solid var(--border);
+  }
+  .signal-name { color: var(--text-dim); }
+  .signal-value { font-weight: 700; }
+
+  @media (max-width: 900px) {
+    .math-layout { grid-template-columns: 1fr; }
+    .math-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 600px) {
+    .math-col { padding: 16px 14px; }
+    .zscore-grid, .bayes-grid { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .composite-score { font-size: 36px; }
+  }
 </style>
 </head>
 <body>
@@ -2599,14 +3172,15 @@
   <button class="disclaimer-close" onclick="document.getElementById('disclaimerBanner').style.display='none'">✕</button>
 </div>
 
-<nav class="tab-nav">
-  <button class="tab-btn active"  onclick="switchTab('pattern', this)">Pattern Analysis</button>
-  <button class="tab-btn"         onclick="switchTab('ai', this)">AI Insights</button>
-  <button class="tab-btn"         onclick="switchTab('persistence', this)">Distortion Persistence</button>
-  <button class="tab-btn"         onclick="switchTab('prediction', this)">Prediction Engine</button>
-  <button class="tab-btn"         onclick="switchTab('observer', this)">Observer & Bankroll</button>
-  <button class="tab-btn"         onclick="switchTab('distortion', this)">Distortion Index</button>
-  <button class="tab-btn"         onclick="switchTab('stats', this)">Statistics</button>
+<nav class="tab-nav" id="tabNav">
+  <button class="tab-btn active" data-tab="pattern"    onclick="switchTab('pattern', this)">Pattern Analysis</button>
+  <button class="tab-btn"         data-tab="ai"          onclick="switchTab('ai', this)">AI Insights</button>
+  <button class="tab-btn"         data-tab="persistence" onclick="switchTab('persistence', this)">Distortion Persistence</button>
+  <button class="tab-btn"         data-tab="prediction"  onclick="switchTab('prediction', this)">Prediction Engine</button>
+  <button class="tab-btn"         data-tab="observer"    onclick="switchTab('observer', this)">Observer & Bankroll</button>
+  <button class="tab-btn"         data-tab="distortion"  onclick="switchTab('distortion', this)">Distortion Index</button>
+  <button class="tab-btn"         data-tab="mathsignals" onclick="switchTab('mathsignals', this)">Math Signals</button>
+  <button class="tab-btn"         data-tab="stats"       onclick="switchTab('stats', this)">Statistics</button>
 </nav>
 
 <!-- ─── LIVE STATUS STRIP ─── -->
@@ -3348,6 +3922,132 @@
 </div>
 
 <!-- ════════════════════════════════════════════════
+     TAB — MATH SIGNALS
+════════════════════════════════════════════════ -->
+<div id="tab-mathsignals" class="tab-panel">
+  <div class="math-layout">
+
+    <!-- LEFT COLUMN -->
+    <div class="math-col">
+
+      <!-- Composite Reversion Signal -->
+      <div class="math-card">
+        <div class="math-card-header">
+          <span class="math-card-title">Composite Reversion Signal</span>
+          <span class="math-card-badge math-badge-weak" id="ms-composite-badge">WAITING</span>
+        </div>
+        <div class="math-card-body">
+          <div class="composite-hero">
+            <div class="composite-score" id="ms-composite-score" style="color:var(--text-dim)">—</div>
+            <div class="composite-label">Weighted Signal Score (0–100)</div>
+            <div class="composite-bar"><div class="composite-bar-fill" id="ms-composite-bar" style="width:0%;background:var(--text-dim)"></div></div>
+            <div class="composite-votes" id="ms-composite-votes">
+              <span class="composite-vote"><span class="composite-dot" style="background:var(--d1)"></span> D1: —</span>
+              <span class="composite-vote"><span class="composite-dot" style="background:var(--d2)"></span> D2: —</span>
+              <span class="composite-vote"><span class="composite-dot" style="background:var(--d3)"></span> D3: —</span>
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--text-dim);text-align:center;margin-top:4px" id="ms-composite-detail"></div>
+        </div>
+      </div>
+
+      <!-- Z-Score Reversion -->
+      <div class="math-card">
+        <div class="math-card-header">
+          <span class="math-card-title">Z-Score Reversion Signal</span>
+          <span class="math-card-badge math-badge-weak" id="ms-zscore-badge">—</span>
+        </div>
+        <div class="math-card-body">
+          <div class="zscore-grid" id="ms-zscore-grid">
+            <div class="zscore-card"><div class="zscore-val" style="color:var(--d1)">—</div><div class="zscore-dozen">D1</div></div>
+            <div class="zscore-card"><div class="zscore-val" style="color:var(--d2)">—</div><div class="zscore-dozen">D2</div></div>
+            <div class="zscore-card"><div class="zscore-val" style="color:var(--d3)">—</div><div class="zscore-dozen">D3</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chi-Squared Test -->
+      <div class="math-card">
+        <div class="math-card-header">
+          <span class="math-card-title">Chi-Squared (χ²) Test</span>
+          <span class="math-card-badge math-badge-weak" id="ms-chi-badge">—</span>
+        </div>
+        <div class="math-card-body" id="ms-chi-body">
+          <div style="font-size:11px;color:var(--text-dim)">Need 12+ non-zero spins…</div>
+        </div>
+      </div>
+
+      <!-- Signal Summary -->
+      <div class="math-card">
+        <div class="math-card-header">
+          <span class="math-card-title">Signal Summary</span>
+        </div>
+        <div class="math-card-body">
+          <div class="signal-summary" id="ms-signal-summary">
+            <div style="font-size:11px;color:var(--text-dim)">Awaiting data…</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="math-col">
+
+      <!-- Markov Transition Matrix -->
+      <div class="math-card">
+        <div class="math-card-header">
+          <span class="math-card-title">Markov Transition Matrix</span>
+          <span class="math-card-badge math-badge-weak" id="ms-markov-badge">—</span>
+        </div>
+        <div class="math-card-body" id="ms-markov-body">
+          <div style="font-size:11px;color:var(--text-dim)">Need 8+ non-zero spins…</div>
+        </div>
+      </div>
+
+      <!-- Shannon Entropy Rate -->
+      <div class="math-card">
+        <div class="math-card-header">
+          <span class="math-card-title">Shannon Entropy Rate</span>
+          <span class="math-card-badge math-badge-weak" id="ms-entropy-badge">—</span>
+        </div>
+        <div class="math-card-body" id="ms-entropy-body">
+          <div style="font-size:11px;color:var(--text-dim)">Need 8+ non-zero spins…</div>
+        </div>
+      </div>
+
+      <!-- EWMA Momentum -->
+      <div class="math-card">
+        <div class="math-card-header">
+          <span class="math-card-title">EWMA Momentum</span>
+          <span class="math-card-badge math-badge-weak" id="ms-ewma-badge">—</span>
+        </div>
+        <div class="math-card-body" id="ms-ewma-body">
+          <div style="font-size:11px;color:var(--text-dim)">Need 6+ non-zero spins…</div>
+        </div>
+      </div>
+
+      <!-- Bayesian Posterior -->
+      <div class="math-card">
+        <div class="math-card-header">
+          <span class="math-card-title">Bayesian Posterior</span>
+          <span class="math-card-badge math-badge-weak" id="ms-bayes-badge">—</span>
+        </div>
+        <div class="math-card-body">
+          <div class="bayes-grid" id="ms-bayes-grid">
+            <div class="bayes-card"><div class="bayes-prob" style="color:var(--d1)">—</div><div class="zscore-dozen">D1</div><div class="bayes-prior">prior: 33.3%</div></div>
+            <div class="bayes-card"><div class="bayes-prob" style="color:var(--d2)">—</div><div class="zscore-dozen">D2</div><div class="bayes-prior">prior: 33.3%</div></div>
+            <div class="bayes-card"><div class="bayes-prob" style="color:var(--d3)">—</div><div class="zscore-dozen">D3</div><div class="bayes-prior">prior: 33.3%</div></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:8px;text-align:center" id="ms-bayes-detail"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
      TAB — PREDICTION ENGINE (Entertainment Only)
 ════════════════════════════════════════════════ -->
 <div id="tab-prediction" class="tab-panel">
@@ -3510,8 +4210,16 @@
 
       <!-- Header -->
       <div class="ai-chat-header">
-        <h3>AI Analyst</h3>
-        <p>Statistical intelligence · Powered by your chosen AI provider</p>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <h3>AI Analyst</h3>
+            <p>Statistical intelligence · Powered by your chosen AI provider</p>
+          </div>
+          <div class="ai-header-actions">
+            <button class="ai-toggle-btn" id="btnToggleConfig" title="Toggle API config">⚙</button>
+            <button class="ai-toggle-btn" id="btnTogglePanel" title="Toggle conditions panel">◧</button>
+          </div>
+        </div>
       </div>
 
       <!-- Config Row -->
@@ -3537,6 +4245,9 @@
           <strong style="color:var(--gold)">Groq</strong> — Free &amp; fast. Get key at console.groq.com/keys
         </div>
       </div>
+
+      <!-- False Signal Flash Cards (only visible when triggered) -->
+      <div class="fs-cards-tray" id="fsCardsTray"></div>
 
       <!-- Messages area -->
       <div class="ai-messages" id="aiMessages">
@@ -3567,6 +4278,7 @@
     </div>
 
     <!-- RIGHT: Live Conditions Dashboard -->
+    <div class="ai-resize-handle" id="aiResizeHandle"></div>
     <div class="ai-side-panel">
 
       <div class="ai-conditions-card">
@@ -3583,6 +4295,23 @@
           <div class="acc-row"><span class="acc-key">Cycle</span><span class="acc-val" id="cp-pat-cycle">—</span></div>
           <div class="acc-row"><span class="acc-key">Streak</span><span class="acc-val" id="cp-pat-streak">—</span></div>
           <div class="acc-row"><span class="acc-key">Alternation</span><span class="acc-val" id="cp-pat-alt">—</span></div>
+        </div>
+      </div>
+
+      <div class="ai-conditions-card" style="border-color:rgba(201,168,76,0.4);">
+        <div class="acc-header" style="background:rgba(201,168,76,0.06);">
+          <span class="acc-header-title">⊞ Frame Pattern (Small Frame)</span>
+          <div class="live-dot"></div>
+        </div>
+        <div class="acc-body">
+          <div class="acc-row"><span class="acc-key">Pattern?</span><span class="acc-val" id="cp-fp-status" style="font-weight:700">—</span></div>
+          <div class="acc-row"><span class="acc-key">Type</span><span class="acc-val" id="cp-fp-type">—</span></div>
+          <div class="acc-row"><span class="acc-key">Confidence</span><span class="acc-val" id="cp-fp-conf">—</span></div>
+          <div class="acc-row"><span class="acc-key">Predict Next</span><span class="acc-val" id="cp-fp-predict" style="color:var(--gold)">—</span></div>
+          <div class="acc-row"><span class="acc-key">Frame</span><span class="acc-val" id="cp-fp-seq" style="font-size:8px">—</span></div>
+          <div class="acc-row"><span class="acc-key">Cyclic Trend</span><span class="acc-val" id="cp-fp-cyclic">—</span></div>
+          <div class="acc-row"><span class="acc-key">Engines Agree</span><span class="acc-val" id="cp-fp-agree">—</span></div>
+          <div class="acc-row"><span class="acc-key">Conflict?</span><span class="acc-val" id="cp-fp-conflict">—</span></div>
         </div>
       </div>
 
@@ -3678,6 +4407,29 @@
           <div class="acc-row"><span class="acc-key">Pending</span><span class="acc-val" id="cp-learn-pending">—</span></div>
           <div class="acc-row"><span class="acc-key">Sessions</span><span class="acc-val" id="cp-learn-sessions">—</span></div>
           <div class="acc-row"><span class="acc-key">Memory Turns</span><span class="acc-val" id="cp-learn-memory">—</span></div>
+        </div>
+      </div>
+
+      <div class="ai-conditions-card" style="border-color:rgba(231,76,60,0.4);">
+        <div class="acc-header" style="background:rgba(231,76,60,0.06);">
+          <span class="acc-header-title">🔥 Hot Numbers by Dozen</span>
+          <div class="live-dot"></div>
+        </div>
+        <div class="acc-body">
+          <div style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--d1);margin-bottom:4px;">Dozen 1 (1–12)</div>
+          <div class="acc-row" style="padding:2px 0;"><span class="acc-val" id="cp-hot-d1" style="font-size:10px;color:var(--text);width:100%;text-align:left;">—</span></div>
+          <div style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--d2);margin-top:6px;margin-bottom:4px;">Dozen 2 (13–24)</div>
+          <div class="acc-row" style="padding:2px 0;"><span class="acc-val" id="cp-hot-d2" style="font-size:10px;color:var(--text);width:100%;text-align:left;">—</span></div>
+          <div style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--d3);margin-top:6px;margin-bottom:4px;">Dozen 3 (25–36)</div>
+          <div class="acc-row" style="padding:2px 0;"><span class="acc-val" id="cp-hot-d3" style="font-size:10px;color:var(--text);width:100%;text-align:left;">—</span></div>
+          <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:6px;">
+            <div style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:4px;">Rising 📈</div>
+            <div class="acc-row" style="padding:2px 0;"><span class="acc-val" id="cp-hot-rising" style="font-size:10px;color:var(--gold);width:100%;text-align:left;">—</span></div>
+          </div>
+          <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;">
+            <div style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px;">Due (long gap)</div>
+            <div class="acc-row" style="padding:2px 0;"><span class="acc-val" id="cp-hot-due" style="font-size:10px;color:var(--text-dim);width:100%;text-align:left;">—</span></div>
+          </div>
         </div>
       </div>
 
@@ -4336,6 +5088,140 @@ function switchTab(name, btn) {
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
 }
+
+// ─── DRAGGABLE TAB REORDERING ───────────────────────────────
+(function initTabDrag() {
+  const TAB_ORDER_KEY = 'roulette-tab-order';
+  const nav = document.getElementById('tabNav');
+  let dragSrc = null;
+
+  function saveTabOrder() {
+    const order = Array.from(nav.querySelectorAll('.tab-btn')).map(b => b.dataset.tab);
+    try { localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(order)); } catch {}
+  }
+
+  function restoreTabOrder() {
+    try {
+      const saved = localStorage.getItem(TAB_ORDER_KEY);
+      if (!saved) return;
+      const order = JSON.parse(saved);
+      const btns = {};
+      nav.querySelectorAll('.tab-btn').forEach(b => { btns[b.dataset.tab] = b; });
+      order.forEach(tab => { if (btns[tab]) nav.appendChild(btns[tab]); });
+    } catch {}
+  }
+
+  nav.addEventListener('dragstart', function(e) {
+    const btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    dragSrc = btn;
+    btn.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', btn.dataset.tab);
+  });
+
+  nav.addEventListener('dragend', function(e) {
+    const btn = e.target.closest('.tab-btn');
+    if (btn) btn.classList.remove('dragging');
+    nav.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+    dragSrc = null;
+  });
+
+  nav.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const target = e.target.closest('.tab-btn');
+    if (!target || target === dragSrc) return;
+    nav.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+    const rect = target.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    target.classList.add(e.clientX < midX ? 'drag-over-left' : 'drag-over-right');
+  });
+
+  nav.addEventListener('dragleave', function(e) {
+    const target = e.target.closest('.tab-btn');
+    if (target) target.classList.remove('drag-over-left', 'drag-over-right');
+  });
+
+  nav.addEventListener('drop', function(e) {
+    e.preventDefault();
+    const target = e.target.closest('.tab-btn');
+    if (!target || !dragSrc || target === dragSrc) return;
+    const rect = target.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    if (e.clientX < midX) {
+      nav.insertBefore(dragSrc, target);
+    } else {
+      nav.insertBefore(dragSrc, target.nextSibling);
+    }
+    nav.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+    saveTabOrder();
+  });
+
+  // Touch support for mobile drag reorder
+  let touchSrc = null, touchClone = null, touchStartX = 0;
+
+  nav.addEventListener('touchstart', function(e) {
+    const btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    touchSrc = btn;
+    touchStartX = e.touches[0].clientX;
+    // Long-press detection: only drag after 300ms hold
+    touchSrc._holdTimer = setTimeout(function() {
+      touchSrc.classList.add('dragging');
+      touchClone = btn.cloneNode(true);
+      touchClone.style.cssText = 'position:fixed;pointer-events:none;z-index:9999;opacity:0.8;transform:scale(1.05);';
+      touchClone.style.top = btn.getBoundingClientRect().top + 'px';
+      touchClone.style.left = e.touches[0].clientX - btn.offsetWidth / 2 + 'px';
+      touchClone.style.width = btn.offsetWidth + 'px';
+      document.body.appendChild(touchClone);
+    }, 300);
+  }, { passive: true });
+
+  nav.addEventListener('touchmove', function(e) {
+    if (!touchSrc || !touchClone) {
+      // Not yet dragging — if moved too much, cancel
+      if (touchSrc && Math.abs(e.touches[0].clientX - touchStartX) > 10) {
+        clearTimeout(touchSrc._holdTimer);
+        touchSrc = null;
+      }
+      return;
+    }
+    e.preventDefault();
+    touchClone.style.left = e.touches[0].clientX - touchSrc.offsetWidth / 2 + 'px';
+    const elemBelow = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+    const target = elemBelow ? elemBelow.closest('.tab-btn') : null;
+    nav.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+    if (target && target !== touchSrc) {
+      const rect = target.getBoundingClientRect();
+      target.classList.add(e.touches[0].clientX < rect.left + rect.width / 2 ? 'drag-over-left' : 'drag-over-right');
+    }
+  }, { passive: false });
+
+  nav.addEventListener('touchend', function(e) {
+    if (touchSrc) clearTimeout(touchSrc._holdTimer);
+    if (!touchSrc || !touchClone) { touchSrc = null; return; }
+    const lastTouch = e.changedTouches[0];
+    const elemBelow = document.elementFromPoint(lastTouch.clientX, lastTouch.clientY);
+    const target = elemBelow ? elemBelow.closest('.tab-btn') : null;
+    if (target && target !== touchSrc) {
+      const rect = target.getBoundingClientRect();
+      if (lastTouch.clientX < rect.left + rect.width / 2) {
+        nav.insertBefore(touchSrc, target);
+      } else {
+        nav.insertBefore(touchSrc, target.nextSibling);
+      }
+      saveTabOrder();
+    }
+    touchSrc.classList.remove('dragging');
+    nav.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('drag-over-left', 'drag-over-right'));
+    if (touchClone) touchClone.remove();
+    touchSrc = null;
+    touchClone = null;
+  });
+
+  restoreTabOrder();
+})();
 
 // ─── BUILD NUMBER GRID ──────────────────────────────────────
 const grid = document.getElementById('numberGrid');
@@ -5060,6 +5946,7 @@ function renderAll() {
   renderConditionsDashboard();
   renderObserverTab();
   renderPredictionTab();
+  renderMathSignalsTab();
 }
 
 // ─── RENDER HISTORY TAPE ─────────────────────────────────────
@@ -5493,6 +6380,247 @@ function detectAllPatterns(hist) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// MODULE 3B — Small Frame Pattern Identifier + Cyclic Trend
+// Simple YES/NO pattern detection for small frames (6-9 spins)
+// Resolves engine conflicts by arbitrating signals at frame level
+// ══════════════════════════════════════════════════════════════
+
+function analyzeSmallFrame(hist, frameSize) {
+  if (typeof frameSize === 'undefined') frameSize = 9;
+  const nz = getNonZeroSpins(hist);
+  if (nz.length < 6) return { hasPattern: false, status: 'NEED_DATA', message: 'Need 6+ non-zero spins', frameSize: 0 };
+
+  const actualFrame = Math.min(frameSize, nz.length);
+  const frame = nz.slice(-actualFrame);
+  const seq = frame.map(x => x <= 12 ? 'D1' : x <= 24 ? 'D2' : 'D3');
+
+  // 1. Dozen distribution in this small frame
+  const counts = { D1: 0, D2: 0, D3: 0 };
+  for (const d of seq) counts[d]++;
+  const total = seq.length;
+  const probs = { D1: counts.D1 / total, D2: counts.D2 / total, D3: counts.D3 / total };
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const dominant = sorted[0][0];
+  const dominantShare = sorted[0][1] / total;
+  const weakest = sorted[2][0];
+  const weakestShare = sorted[2][1] / total;
+  const imbalance = dominantShare - weakestShare;
+
+  // 2. Cycle check within this frame
+  let cycleDetected = false;
+  let cycleLen = 0;
+  let cyclePattern = [];
+  let cycleStrength = 0;
+  if (seq.length >= 4) {
+    for (let len = 2; len <= Math.min(4, Math.floor(seq.length / 2)); len++) {
+      let matches = 0, checks = 0;
+      for (let i = len; i < seq.length; i++) {
+        checks++;
+        if (seq[i] === seq[i - len]) matches++;
+      }
+      const str = checks > 0 ? matches / checks : 0;
+      if (str >= 0.6 && str > cycleStrength) {
+        cycleDetected = true;
+        cycleLen = len;
+        cyclePattern = seq.slice(-len);
+        cycleStrength = str;
+      }
+    }
+  }
+
+  // 3. Streak check (same dozen repeating)
+  let streakLen = 1;
+  for (let i = seq.length - 2; i >= 0; i--) {
+    if (seq[i] === seq[seq.length - 1]) streakLen++;
+    else break;
+  }
+
+  // 4. Alternation check
+  let altCount = 0;
+  for (let i = 1; i < seq.length; i++) {
+    if (seq[i] !== seq[i - 1]) altCount++;
+  }
+  const altRate = seq.length > 1 ? altCount / (seq.length - 1) : 0;
+
+  // 5. Frame verdict: is there a recognizable pattern?
+  let hasPattern = false;
+  let patternType = 'NONE';
+  let patternLabel = 'No pattern in frame';
+  let confidence = 0;
+  let predictNext = null;
+
+  if (cycleDetected && cycleStrength >= 0.65) {
+    hasPattern = true;
+    patternType = 'CYCLE';
+    const nextPos = seq.length % cycleLen;
+    predictNext = cyclePattern[nextPos] || cyclePattern[0];
+    confidence = Math.round(cycleStrength * 85);
+    patternLabel = `Cycle detected: ${cyclePattern.join('→')} (strength ${Math.round(cycleStrength * 100)}%)`;
+  } else if (streakLen >= 3) {
+    hasPattern = true;
+    patternType = 'STREAK';
+    predictNext = seq[seq.length - 1];
+    confidence = Math.min(60, 30 + streakLen * 10);
+    patternLabel = `Streak active: ${seq[seq.length - 1]} ×${streakLen}`;
+  } else if (altRate >= 0.75 && seq.length >= 5) {
+    hasPattern = true;
+    patternType = 'ALTERNATION';
+    predictNext = seq.length >= 2 ? seq[seq.length - 2] : null;
+    confidence = Math.round(altRate * 65);
+    patternLabel = `Alternation: switches ${Math.round(altRate * 100)}% of time`;
+  } else if (dominantShare >= 0.50 && total >= 6) {
+    hasPattern = true;
+    patternType = 'DOMINANCE';
+    predictNext = dominant;
+    confidence = Math.round(imbalance * 120);
+    patternLabel = `${dominant} dominant at ${Math.round(dominantShare * 100)}%`;
+  } else if (weakestShare === 0 && total >= 6) {
+    hasPattern = true;
+    patternType = 'ABSENCE';
+    predictNext = weakest;
+    confidence = Math.min(55, 25 + total * 3);
+    patternLabel = `${weakest} absent in last ${total} spins — due`;
+  }
+
+  // 6. Cyclic trend: check if DI is cycling (rising then falling repeatedly)
+  let cyclicTrend = { detected: false, phase: 'UNKNOWN', message: 'Need more data' };
+  if (nz.length >= 18) {
+    const frames = [];
+    for (let i = Math.max(0, nz.length - 36); i <= nz.length - 6; i += 3) {
+      const chunk = nz.slice(i, Math.min(i + 6, nz.length));
+      if (chunk.length >= 4) frames.push(computeFrameDI(chunk));
+    }
+    if (frames.length >= 4) {
+      // Detect direction changes (peaks and valleys)
+      let changes = 0;
+      let dirs = [];
+      for (let i = 1; i < frames.length; i++) {
+        const diff = frames[i] - frames[i - 1];
+        if (Math.abs(diff) > 0.3) dirs.push(diff > 0 ? 'UP' : 'DOWN');
+      }
+      for (let i = 1; i < dirs.length; i++) {
+        if (dirs[i] !== dirs[i - 1]) changes++;
+      }
+      const changeRate = dirs.length > 1 ? changes / (dirs.length - 1) : 0;
+      const lastDir = dirs.length > 0 ? dirs[dirs.length - 1] : 'FLAT';
+      const lastDI = frames[frames.length - 1];
+
+      if (changeRate >= 0.5 && dirs.length >= 3) {
+        cyclicTrend = {
+          detected: true,
+          phase: lastDir === 'UP' ? 'RISING' : 'FALLING',
+          changeRate: Math.round(changeRate * 100),
+          lastDI: lastDI.toFixed(1),
+          frameCount: frames.length,
+          message: `DI cycling (${Math.round(changeRate * 100)}% reversals). Currently ${lastDir === 'UP' ? 'RISING → expect correction' : 'FALLING → expect spike'}. DI=${lastDI.toFixed(1)}`
+        };
+      } else if (dirs.length >= 2) {
+        cyclicTrend = {
+          detected: false,
+          phase: lastDir,
+          changeRate: Math.round(changeRate * 100),
+          lastDI: lastDI.toFixed(1),
+          frameCount: frames.length,
+          message: `DI trending ${lastDir} (${Math.round(changeRate * 100)}% reversals). DI=${lastDI.toFixed(1)}`
+        };
+      }
+    }
+  }
+
+  return {
+    hasPattern,
+    status: hasPattern ? 'PATTERN' : 'NO_PATTERN',
+    patternType,
+    patternLabel,
+    confidence,
+    predictNext,
+    frameSize: actualFrame,
+    frameSequence: seq.join(' → '),
+    counts,
+    dominant,
+    dominantShare: Math.round(dominantShare * 100),
+    weakest,
+    weakestShare: Math.round(weakestShare * 100),
+    imbalance: Math.round(imbalance * 100),
+    cycle: cycleDetected ? { length: cycleLen, pattern: cyclePattern.join('→'), strength: Math.round(cycleStrength * 100) } : null,
+    streak: streakLen >= 2 ? { dozen: seq[seq.length - 1], length: streakLen } : null,
+    altRate: Math.round(altRate * 100),
+    cyclicTrend,
+    spinsUsed: frame.map(n => n)
+  };
+}
+
+/**
+ * Frame Arbitrator: resolves conflicts between Math, Prediction, and Distortion engines.
+ * Instead of stacking weak bonuses, picks the single strongest agreeing signal cluster.
+ * Returns a simplified unified recommendation.
+ */
+function frameArbitrate(hist) {
+  const nz = getNonZeroSpins(hist);
+  if (nz.length < 12) return null;
+
+  // Gather signals from each engine
+  const frameP = analyzeSmallFrame(hist, 9);
+  const patAll = detectAllPatterns(hist);
+  const composite = computeCompositeSignal(hist);
+  const diResult = distortionIndex(hist);
+
+  // Collect votes per dozen from each independent engine
+  const engineVotes = { D1: [], D2: [], D3: [] };
+
+  // Source 1: Small frame pattern (if detected)
+  if (frameP.hasPattern && frameP.predictNext) {
+    engineVotes[frameP.predictNext].push({ source: 'FRAME', weight: frameP.confidence, type: frameP.patternType });
+  }
+
+  // Source 2: Pattern consensus (if strong)
+  if (patAll.ready && patAll.consensus.score >= 0.40) {
+    const d = patAll.consensus.predictedDozen;
+    engineVotes[d].push({ source: 'PATTERN_ENGINE', weight: Math.round(patAll.consensus.score * 80), type: 'consensus' });
+  }
+
+  // Source 3: Math composite (if not neutral)
+  if (composite && composite.strength !== 'NEUTRAL') {
+    engineVotes[composite.predicted].push({ source: 'MATH', weight: composite.score, type: composite.strength });
+  }
+
+  // Source 4: Distortion index (weakest dozen if DI > 4)
+  if (diResult && diResult.distortionIndex > 4) {
+    const weakD = 'D' + diResult.weakestDozen;
+    engineVotes[weakD].push({ source: 'DISTORTION', weight: Math.round(diResult.distortionIndex * 8), type: diResult.distortionLevel });
+  }
+
+  // Find which dozen has most engine agreement
+  const dozenScores = {};
+  for (const [d, votes] of Object.entries(engineVotes)) {
+    const totalWeight = votes.reduce((s, v) => s + v.weight, 0);
+    const engineCount = votes.length;
+    dozenScores[d] = { totalWeight, engineCount, sources: votes };
+  }
+
+  const ranked = Object.entries(dozenScores).sort((a, b) => {
+    // Prefer more engines agreeing, then by total weight
+    if (b[1].engineCount !== a[1].engineCount) return b[1].engineCount - a[1].engineCount;
+    return b[1].totalWeight - a[1].totalWeight;
+  });
+
+  const best = ranked[0];
+  const conflict = ranked[0][1].engineCount <= 1 && ranked[1] && ranked[1][1].engineCount >= 1 && ranked[1][1].totalWeight > 0;
+  const agreement = best[1].engineCount;
+
+  return {
+    recommendation: best[0],
+    agreement,
+    totalEngines: Object.values(dozenScores).reduce((s, v) => s + (v.sources.length > 0 ? 1 : 0), 0),
+    conflict,
+    conflictNote: conflict ? `Engines disagree: ${ranked.filter(r => r[1].engineCount > 0).map(r => `${r[0]}(${r[1].sources.map(s => s.source).join('+')})`).join(' vs ')}` : null,
+    details: dozenScores,
+    framePattern: frameP,
+    cyclicTrend: frameP.cyclicTrend
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
 // MODULE 2 — Distortion Index (12-spin frame, 0–10)
 // ══════════════════════════════════════════════════════════════
 
@@ -5788,6 +6916,549 @@ function computeReversionLeadingScore(dm, velResult, sigResult, hist) {
   };
 
   return { score: Math.min(score, 100), signals, weakIdx, domIdx, shouldTrigger, components, weakestDozen: weakIdx + 1 };
+}
+
+// ══════════════════════════════════════════════════════════════
+// MATH SIGNALS — Six Mathematical Formulas + Composite
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * 1. EWMA (Exponential Weighted Moving Average) per dozen.
+ * Tracks momentum with recency weighting. α = smoothing factor (0.3 default).
+ * Returns { D1: ewma, D2: ewma, D3: ewma, dominant, divergence }
+ */
+function computeEWMA(hist, alpha) {
+  if (typeof alpha === 'undefined') alpha = 0.3;
+  const nonZero = getNonZeroSpins(hist);
+  if (nonZero.length < 6) return null;
+  let ewma = [0.333, 0.333, 0.333]; // start at uniform
+  for (const spin of nonZero) {
+    const d = spin <= 12 ? 0 : spin <= 24 ? 1 : 2;
+    const obs = [0, 0, 0];
+    obs[d] = 1;
+    for (let i = 0; i < 3; i++) {
+      ewma[i] = alpha * obs[i] + (1 - alpha) * ewma[i];
+    }
+  }
+  const labels = ['D1', 'D2', 'D3'];
+  const result = { D1: ewma[0], D2: ewma[1], D3: ewma[2] };
+  const maxIdx = ewma.indexOf(Math.max(...ewma));
+  const minIdx = ewma.indexOf(Math.min(...ewma));
+  result.dominant = labels[maxIdx];
+  result.weakest = labels[minIdx];
+  result.divergence = ewma[maxIdx] - ewma[minIdx];
+  return result;
+}
+
+/**
+ * 2. Chi-Squared (χ²) Test — full version for Math Signals tab.
+ * Tests if dozen distribution is statistically non-uniform over configurable window.
+ * Returns { chiSq, df, pCategory, isSignificant, observed, expected, contributions }
+ */
+function computeChiSquared(hist, windowSize) {
+  if (typeof windowSize === 'undefined') windowSize = 0;
+  const nonZero = getNonZeroSpins(hist);
+  const frame = windowSize > 0 ? nonZero.slice(-windowSize) : nonZero;
+  if (frame.length < 12) return null;
+  const { d1, d2, d3 } = countDozens(frame);
+  const N = frame.length;
+  const expected = N / 3;
+  const observed = [d1, d2, d3];
+  const contributions = observed.map(o => ((o - expected) ** 2) / expected);
+  const chiSq = contributions.reduce((s, v) => s + v, 0);
+  let pCategory;
+  if (chiSq > 9.210) pCategory = 'HIGHLY_SIGNIFICANT';
+  else if (chiSq > 5.991) pCategory = 'SIGNIFICANT';
+  else if (chiSq > 4.605) pCategory = 'MARGINAL';
+  else if (chiSq > 2.773) pCategory = 'WEAK';
+  else pCategory = 'NOT_SIGNIFICANT';
+  return {
+    chiSq: parseFloat(chiSq.toFixed(3)),
+    df: 2,
+    pCategory,
+    isSignificant: chiSq > 5.991,
+    observed,
+    expected: parseFloat(expected.toFixed(2)),
+    contributions: contributions.map(c => parseFloat(c.toFixed(3))),
+    N
+  };
+}
+
+/**
+ * 3. Z-Score Reversion Signal — core mean reversion detector.
+ * For each dozen, z = (observed - expected) / sqrt(expected * (1 - p) )
+ * Negative z → underrepresented (reversion candidate).
+ * Returns { scores: [{dozen, z, interpretation}], reversionCandidate, strongestSignal }
+ */
+function computeZScores(hist, windowSize) {
+  if (typeof windowSize === 'undefined') windowSize = 0;
+  const nonZero = getNonZeroSpins(hist);
+  const frame = windowSize > 0 ? nonZero.slice(-windowSize) : nonZero;
+  if (frame.length < 12) return null;
+  const { d1, d2, d3 } = countDozens(frame);
+  const N = frame.length;
+  const p = 1 / 3;
+  const expected = N * p;
+  const stdDev = Math.sqrt(N * p * (1 - p));
+  const labels = ['D1', 'D2', 'D3'];
+  const observed = [d1, d2, d3];
+  const scores = observed.map((o, i) => {
+    const z = parseFloat(((o - expected) / stdDev).toFixed(3));
+    let interpretation;
+    if (z <= -2.0) interpretation = 'STRONG_REVERSION';
+    else if (z <= -1.5) interpretation = 'MODERATE_REVERSION';
+    else if (z <= -1.0) interpretation = 'MILD_REVERSION';
+    else if (z >= 2.0) interpretation = 'STRONG_OVERWEIGHT';
+    else if (z >= 1.5) interpretation = 'MODERATE_OVERWEIGHT';
+    else if (z >= 1.0) interpretation = 'MILD_OVERWEIGHT';
+    else interpretation = 'NEUTRAL';
+    return { dozen: labels[i], z, observed: o, expected: parseFloat(expected.toFixed(1)), interpretation };
+  });
+  const minZ = scores.reduce((a, b) => b.z < a.z ? b : a, scores[0]);
+  return {
+    scores,
+    reversionCandidate: minZ.dozen,
+    strongestSignal: Math.abs(minZ.z),
+    N
+  };
+}
+
+/**
+ * 4. Bayesian Posterior (Dirichlet-Multinomial).
+ * Prior: Dirichlet(α₁, α₂, α₃) with uniform α=1 (Bayes-Laplace).
+ * Posterior after observing counts: Dirichlet(α₁+c₁, α₂+c₂, α₃+c₃).
+ * Returns posterior probabilities and the MAP estimate.
+ */
+function computeBayesianPosterior(hist, priorAlpha) {
+  if (typeof priorAlpha === 'undefined') priorAlpha = 1;
+  const nonZero = getNonZeroSpins(hist);
+  if (nonZero.length < 6) return null;
+  const { d1, d2, d3 } = countDozens(nonZero);
+  const alphas = [priorAlpha + d1, priorAlpha + d2, priorAlpha + d3];
+  const sum = alphas.reduce((s, a) => s + a, 0);
+  const posteriors = alphas.map(a => a / sum);
+  const labels = ['D1', 'D2', 'D3'];
+  const maxIdx = posteriors.indexOf(Math.max(...posteriors));
+  const minIdx = posteriors.indexOf(Math.min(...posteriors));
+  // Concentration: higher sum → more confident
+  const concentration = sum;
+  return {
+    posteriors: { D1: parseFloat(posteriors[0].toFixed(4)), D2: parseFloat(posteriors[1].toFixed(4)), D3: parseFloat(posteriors[2].toFixed(4)) },
+    alphas: { D1: alphas[0], D2: alphas[1], D3: alphas[2] },
+    mapEstimate: labels[maxIdx],
+    leastLikely: labels[minIdx],
+    concentration,
+    priorAlpha
+  };
+}
+
+/**
+ * 5. Enhanced Markov Chain with entropy — wraps existing buildMarkovChain.
+ * Also computes transition entropy per state.
+ */
+function computeMarkovSignal(hist) {
+  const seq = toDozenSequence(hist);
+  if (seq.length < 8) return null;
+  const markov = buildMarkovChain(seq);
+  // Compute entropy of each row
+  const labels = ['D1', 'D2', 'D3'];
+  const maxEnt = Math.log(3);
+  const rowEntropy = {};
+  labels.forEach(from => {
+    const probs = labels.map(to => markov.matrix[from][to]);
+    const ent = -probs.reduce((s, p) => s + (p > 0 ? p * Math.log(p) : 0), 0);
+    rowEntropy[from] = parseFloat((ent / maxEnt).toFixed(3));
+  });
+  const avgEntropy = parseFloat((labels.reduce((s, l) => s + rowEntropy[l], 0) / 3).toFixed(3));
+  return {
+    matrix: markov.matrix,
+    prediction: markov.prediction,
+    confidence: markov.confidence,
+    lastState: markov.lastState,
+    rowEntropy,
+    avgEntropy,
+    isPredictable: avgEntropy < 0.85
+  };
+}
+
+/**
+ * 6. Shannon Entropy Rate of the dozen sequence.
+ * First-order entropy rate H₁ = H(bigrams) - H(unigrams).
+ * Lower = more predictable structure.
+ */
+function computeShannonEntropyRate(hist) {
+  const seq = toDozenSequence(hist);
+  if (seq.length < 8) return null;
+  const labels = ['D1', 'D2', 'D3'];
+  const maxEnt = Math.log(3);
+
+  // Unigram entropy
+  const uniCounts = { D1: 0, D2: 0, D3: 0 };
+  for (const s of seq) uniCounts[s]++;
+  const N = seq.length;
+  const uniProbs = labels.map(l => uniCounts[l] / N);
+  const H0 = -uniProbs.reduce((s, p) => s + (p > 0 ? p * Math.log(p) : 0), 0);
+  const H0norm = H0 / maxEnt;
+
+  // Bigram entropy
+  const biCounts = {};
+  labels.forEach(a => labels.forEach(b => { biCounts[a + ',' + b] = 0; }));
+  for (let i = 0; i < seq.length - 1; i++) biCounts[seq[i] + ',' + seq[i + 1]]++;
+  const biTotal = seq.length - 1;
+  const biProbs = Object.values(biCounts).map(c => c / biTotal);
+  const maxBiEnt = Math.log(9);
+  const H1 = -biProbs.reduce((s, p) => s + (p > 0 ? p * Math.log(p) : 0), 0);
+
+  // Entropy rate: H₁ = H(bigrams) - H(unigrams)
+  const entropyRate = H1 - H0;
+  const entropyRateNorm = maxEnt > 0 ? entropyRate / maxEnt : 0;
+
+  let regime;
+  if (H0norm < 0.85) regime = 'LOW_ENTROPY';
+  else if (H0norm < 0.95) regime = 'MODERATE';
+  else regime = 'HIGH_ENTROPY';
+
+  return {
+    H0: parseFloat(H0.toFixed(4)),
+    H0norm: parseFloat(H0norm.toFixed(4)),
+    H1joint: parseFloat(H1.toFixed(4)),
+    entropyRate: parseFloat(entropyRate.toFixed(4)),
+    entropyRateNorm: parseFloat(entropyRateNorm.toFixed(4)),
+    regime,
+    isStructured: H0norm < 0.92,
+    unigramDist: { D1: parseFloat(uniProbs[0].toFixed(4)), D2: parseFloat(uniProbs[1].toFixed(4)), D3: parseFloat(uniProbs[2].toFixed(4)) }
+  };
+}
+
+/**
+ * Composite Reversion Signal — combines all six formulas.
+ * Weighted voting system: each formula votes for the most likely reversion dozen.
+ * Returns { score: 0-100, votes: {D1,D2,D3}, predicted, signals: string[], components }
+ */
+function computeCompositeSignal(hist) {
+  const nonZero = getNonZeroSpins(hist);
+  if (nonZero.length < 12) return null;
+
+  const votes = { D1: 0, D2: 0, D3: 0 };
+  const signals = [];
+  const components = {};
+  const labels = ['D1', 'D2', 'D3'];
+
+  // 1. EWMA (weight: 15)
+  const ewma = computeEWMA(hist);
+  if (ewma) {
+    components.EWMA = { dominant: ewma.dominant, weakest: ewma.weakest, divergence: ewma.divergence };
+    // Vote for weakest (reversion candidate)
+    votes[ewma.weakest] += 15 * Math.min(ewma.divergence * 4, 1);
+    if (ewma.divergence > 0.15) signals.push('EWMA: ' + ewma.weakest + ' underweight (' + (ewma[ewma.weakest] * 100).toFixed(1) + '%)');
+  }
+
+  // 2. Chi-Squared (weight: 10)
+  const chi = computeChiSquared(hist);
+  if (chi) {
+    components.ChiSquared = { chiSq: chi.chiSq, pCategory: chi.pCategory };
+    if (chi.isSignificant) {
+      const minObs = Math.min(...chi.observed);
+      const minIdx = chi.observed.indexOf(minObs);
+      votes[labels[minIdx]] += 10;
+      signals.push('χ²=' + chi.chiSq.toFixed(1) + ' ' + chi.pCategory);
+    } else if (chi.pCategory === 'MARGINAL') {
+      const minObs = Math.min(...chi.observed);
+      const minIdx = chi.observed.indexOf(minObs);
+      votes[labels[minIdx]] += 5;
+    }
+  }
+
+  // 3. Z-Score (weight: 25 — strongest)
+  const zscores = computeZScores(hist);
+  if (zscores) {
+    components.ZScore = { candidate: zscores.reversionCandidate, strength: zscores.strongestSignal };
+    const minScore = zscores.scores.reduce((a, b) => b.z < a.z ? b : a, zscores.scores[0]);
+    if (minScore.z <= -1.0) {
+      votes[minScore.dozen] += 25 * Math.min(Math.abs(minScore.z) / 2.5, 1);
+      signals.push('Z-Score: ' + minScore.dozen + ' at z=' + minScore.z.toFixed(2) + ' (' + minScore.interpretation + ')');
+    } else if (minScore.z <= -0.5) {
+      votes[minScore.dozen] += 10;
+    }
+  }
+
+  // 4. Bayesian Posterior (weight: 15)
+  const bayes = computeBayesianPosterior(hist);
+  if (bayes) {
+    components.Bayesian = { map: bayes.mapEstimate, least: bayes.leastLikely };
+    // Vote for least likely (reversion)
+    const leastProb = bayes.posteriors[bayes.leastLikely];
+    const gap = (1 / 3) - leastProb;
+    if (gap > 0.03) {
+      votes[bayes.leastLikely] += 15 * Math.min(gap * 10, 1);
+      signals.push('Bayesian: ' + bayes.leastLikely + ' posterior=' + (leastProb * 100).toFixed(1) + '%');
+    }
+  }
+
+  // 5. Markov (weight: 20)
+  const markov = computeMarkovSignal(hist);
+  if (markov) {
+    components.Markov = { prediction: markov.prediction, confidence: markov.confidence };
+    // Markov predicts momentum (opposite of reversion) — so we boost the Markov prediction
+    // but weight reduces if entropy is high (unpredictable)
+    const markovWeight = markov.isPredictable ? 20 : 10;
+    votes[markov.prediction] += markovWeight * markov.confidence;
+    if (markov.confidence >= 0.4) {
+      signals.push('Markov → ' + markov.prediction + ' (' + (markov.confidence * 100).toFixed(0) + '% conf)');
+    }
+  }
+
+  // 6. Shannon Entropy (weight: 15 — regime modifier)
+  const shannon = computeShannonEntropyRate(hist);
+  if (shannon) {
+    components.Shannon = { regime: shannon.regime, H0norm: shannon.H0norm };
+    // If structured (low entropy), boost the current strongest vote
+    if (shannon.isStructured) {
+      const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+      if (sorted[0][1] > 0) {
+        votes[sorted[0][0]] += 15 * (1 - shannon.H0norm);
+        signals.push('Entropy regime: ' + shannon.regime + ' (H=' + shannon.H0norm.toFixed(3) + ')');
+      }
+    }
+  }
+
+  // Compute final score
+  const totalVotes = Object.values(votes).reduce((s, v) => s + v, 0);
+  const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+  const predicted = sorted[0][0];
+  const score = totalVotes > 0 ? Math.min(100, Math.round(sorted[0][1] / totalVotes * 100)) : 0;
+  const spread = totalVotes > 0 ? (sorted[0][1] - sorted[1][1]) / totalVotes : 0;
+
+  let strength;
+  if (score >= 60 && spread > 0.2) strength = 'STRONG';
+  else if (score >= 45) strength = 'MODERATE';
+  else if (score >= 35) strength = 'MILD';
+  else strength = 'NEUTRAL';
+
+  return {
+    score,
+    votes: { D1: parseFloat(votes.D1.toFixed(2)), D2: parseFloat(votes.D2.toFixed(2)), D3: parseFloat(votes.D3.toFixed(2)) },
+    totalVotes: parseFloat(totalVotes.toFixed(2)),
+    predicted,
+    spread: parseFloat(spread.toFixed(3)),
+    strength,
+    signals,
+    components
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER — Math Signals Tab
+// ══════════════════════════════════════════════════════════════
+function renderMathSignalsTab() {
+  const nonZero = getNonZeroSpins(history);
+  const dClr = { D1: 'var(--d1)', D2: 'var(--d2)', D3: 'var(--d3)' };
+
+  // ── Composite Signal ──
+  const composite = computeCompositeSignal(history);
+  const compScore = document.getElementById('ms-composite-score');
+  const compBar = document.getElementById('ms-composite-bar');
+  const compBadge = document.getElementById('ms-composite-badge');
+  const compVotes = document.getElementById('ms-composite-votes');
+  const compDetail = document.getElementById('ms-composite-detail');
+
+  if (composite) {
+    compScore.textContent = composite.score;
+    const clr = composite.score >= 60 ? 'var(--green-light)' : composite.score >= 40 ? 'var(--gold)' : 'var(--text-dim)';
+    compScore.style.color = clr;
+    compBar.style.width = composite.score + '%';
+    compBar.style.background = composite.score >= 60 ? 'linear-gradient(90deg,var(--green),var(--green-light))' : composite.score >= 40 ? 'linear-gradient(90deg,var(--gold),var(--gold-light))' : 'var(--text-dim)';
+    const badgeCls = composite.strength === 'STRONG' ? 'math-badge-strong' : composite.strength === 'MODERATE' ? 'math-badge-moderate' : composite.strength === 'MILD' ? 'math-badge-alert' : 'math-badge-weak';
+    compBadge.className = 'math-card-badge ' + badgeCls;
+    compBadge.textContent = composite.strength + ' → ' + composite.predicted;
+    compVotes.innerHTML = ['D1', 'D2', 'D3'].map(function(d) {
+      var pct = composite.totalVotes > 0 ? (composite.votes[d] / composite.totalVotes * 100).toFixed(1) : '0.0';
+      var bold = d === composite.predicted ? 'font-weight:700' : '';
+      return '<span class="composite-vote" style="' + bold + '"><span class="composite-dot" style="background:' + dClr[d] + '"></span> ' + d + ': ' + pct + '%</span>';
+    }).join('');
+    compDetail.textContent = composite.signals.length > 0 ? composite.signals.join(' · ') : '';
+  } else {
+    compScore.textContent = '—';
+    compScore.style.color = 'var(--text-dim)';
+    compBar.style.width = '0%';
+    compBadge.className = 'math-card-badge math-badge-weak';
+    compBadge.textContent = 'WAITING';
+    compVotes.innerHTML = ['D1', 'D2', 'D3'].map(function(d) { return '<span class="composite-vote"><span class="composite-dot" style="background:' + dClr[d] + '"></span> ' + d + ': —</span>'; }).join('');
+    compDetail.textContent = 'Need 12+ non-zero spins for composite analysis';
+  }
+
+  // ── Z-Score ──
+  var zscores = computeZScores(history);
+  var zGrid = document.getElementById('ms-zscore-grid');
+  var zBadge = document.getElementById('ms-zscore-badge');
+  if (zscores) {
+    zGrid.innerHTML = zscores.scores.map(function(s) {
+      var clr = s.z <= -1.5 ? 'var(--green-light)' : s.z <= -1.0 ? 'var(--gold)' : s.z >= 1.5 ? 'var(--red-light)' : s.z >= 1.0 ? 'var(--gold)' : 'var(--text-dim)';
+      var interpClr = s.interpretation.indexOf('REVERSION') >= 0 ? 'background:rgba(39,174,96,0.12);color:var(--green-light)' : s.interpretation.indexOf('OVERWEIGHT') >= 0 ? 'background:rgba(231,76,60,0.12);color:var(--red-light)' : 'background:rgba(136,136,136,0.1);color:var(--text-dim)';
+      var interpLabel = s.interpretation.replace('_', ' ');
+      return '<div class="zscore-card"><div class="zscore-val" style="color:' + clr + '">' + s.z.toFixed(2) + '</div><div class="zscore-dozen" style="color:' + dClr[s.dozen] + '">' + s.dozen + ' (' + s.observed + '/' + zscores.N + ')</div><div class="zscore-interp" style="' + interpClr + '">' + interpLabel + '</div></div>';
+    }).join('');
+    var cand = zscores.reversionCandidate;
+    var candBadgeCls = zscores.strongestSignal >= 2.0 ? 'math-badge-strong' : zscores.strongestSignal >= 1.5 ? 'math-badge-moderate' : zscores.strongestSignal >= 1.0 ? 'math-badge-alert' : 'math-badge-weak';
+    zBadge.className = 'math-card-badge ' + candBadgeCls;
+    zBadge.textContent = cand + ' candidate';
+  } else {
+    zGrid.innerHTML = '<div class="zscore-card"><div class="zscore-val" style="color:var(--d1)">—</div><div class="zscore-dozen">D1</div></div><div class="zscore-card"><div class="zscore-val" style="color:var(--d2)">—</div><div class="zscore-dozen">D2</div></div><div class="zscore-card"><div class="zscore-val" style="color:var(--d3)">—</div><div class="zscore-dozen">D3</div></div>';
+    zBadge.className = 'math-card-badge math-badge-weak';
+    zBadge.textContent = '—';
+  }
+
+  // ── Chi-Squared ──
+  var chi = computeChiSquared(history);
+  var chiBody = document.getElementById('ms-chi-body');
+  var chiBadge = document.getElementById('ms-chi-badge');
+  if (chi) {
+    var sigClr = chi.isSignificant ? 'var(--green-light)' : chi.pCategory === 'MARGINAL' ? 'var(--gold)' : 'var(--text-dim)';
+    var chiCls = chi.pCategory === 'HIGHLY_SIGNIFICANT' || chi.pCategory === 'SIGNIFICANT' ? 'math-badge-strong' : chi.pCategory === 'MARGINAL' ? 'math-badge-moderate' : 'math-badge-weak';
+    chiBadge.className = 'math-card-badge ' + chiCls;
+    chiBadge.textContent = chi.pCategory.replace('_', ' ');
+    var labels = ['D1', 'D2', 'D3'];
+    chiBody.innerHTML =
+      '<div style="text-align:center;margin-bottom:12px"><span style="font-family:Playfair Display,serif;font-size:28px;font-weight:900;color:' + sigClr + '">' + chi.chiSq.toFixed(2) + '</span><div style="font-size:10px;color:var(--text-dim)">χ² (df=' + chi.df + ', N=' + chi.N + ')</div></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:10px">' +
+      labels.map(function(l, i) {
+        return '<div style="text-align:center;padding:6px;background:var(--surface2);border-radius:6px"><div style="color:' + dClr[l] + ';font-weight:700">' + l + '</div><div>Obs: ' + chi.observed[i] + '</div><div>Exp: ' + chi.expected.toFixed(1) + '</div><div style="color:var(--text-dim)">χ²+=' + chi.contributions[i].toFixed(2) + '</div></div>';
+      }).join('') +
+      '</div>' +
+      '<div style="text-align:center;margin-top:8px;font-size:10px;color:var(--text-dim)">Critical: 5.991 (p<0.05) · 9.210 (p<0.01)</div>';
+  } else {
+    chiBody.innerHTML = '<div style="font-size:11px;color:var(--text-dim)">Need 12+ non-zero spins…</div>';
+    chiBadge.className = 'math-card-badge math-badge-weak';
+    chiBadge.textContent = '—';
+  }
+
+  // ── Signal Summary ──
+  var summaryEl = document.getElementById('ms-signal-summary');
+  var summaryRows = [];
+  var formulaNames = [
+    { name: 'EWMA Momentum', fn: function() { var e = computeEWMA(history); return e ? { val: e.dominant + ' ↑ (Δ=' + (e.divergence*100).toFixed(1) + '%)', active: e.divergence > 0.1 } : null; } },
+    { name: 'Chi-Squared', fn: function() { return chi ? { val: 'χ²=' + chi.chiSq.toFixed(1) + ' (' + chi.pCategory.replace('_', ' ') + ')', active: chi.isSignificant } : null; } },
+    { name: 'Z-Score', fn: function() { return zscores ? { val: zscores.reversionCandidate + ' (z=' + zscores.scores.reduce(function(a,b){return b.z<a.z?b:a},zscores.scores[0]).z.toFixed(2) + ')', active: zscores.strongestSignal >= 1.0 } : null; } },
+    { name: 'Bayesian', fn: function() { var b = computeBayesianPosterior(history); return b ? { val: b.leastLikely + ' → revert (' + (b.posteriors[b.leastLikely]*100).toFixed(1) + '%)', active: (1/3 - b.posteriors[b.leastLikely]) > 0.03 } : null; } },
+    { name: 'Markov Chain', fn: function() { var m = computeMarkovSignal(history); return m ? { val: m.prediction + ' (' + (m.confidence*100).toFixed(0) + '% conf)', active: m.confidence >= 0.4 } : null; } },
+    { name: 'Shannon Entropy', fn: function() { var s = computeShannonEntropyRate(history); return s ? { val: s.regime + ' (H=' + s.H0norm.toFixed(3) + ')', active: s.isStructured } : null; } }
+  ];
+  formulaNames.forEach(function(f) {
+    var r = f.fn();
+    var borderClr = r && r.active ? 'var(--gold)' : 'var(--border)';
+    var valClr = r && r.active ? 'var(--text)' : 'var(--text-dim)';
+    summaryRows.push('<div class="signal-row" style="border-left-color:' + borderClr + '"><span class="signal-name">' + f.name + '</span><span class="signal-value" style="color:' + valClr + '">' + (r ? r.val : '—') + '</span></div>');
+  });
+  summaryEl.innerHTML = summaryRows.join('');
+
+  // ── Markov Matrix ──
+  var markov = computeMarkovSignal(history);
+  var markovBody = document.getElementById('ms-markov-body');
+  var markovBadge = document.getElementById('ms-markov-badge');
+  if (markov) {
+    var mLabels = ['D1', 'D2', 'D3'];
+    var html = '<div class="markov-matrix">';
+    // Header row
+    html += '<div class="markov-cell markov-header"></div>';
+    mLabels.forEach(function(l) { html += '<div class="markov-cell markov-header" style="color:' + dClr[l] + '">' + l + '</div>'; });
+    // Data rows
+    mLabels.forEach(function(from) {
+      html += '<div class="markov-cell markov-row-label" style="color:' + dClr[from] + '">' + from + '</div>';
+      mLabels.forEach(function(to) {
+        var val = markov.matrix[from][to];
+        var highlight = from === markov.lastState && to === markov.prediction ? ' markov-highlight' : '';
+        html += '<div class="markov-cell' + highlight + '">' + (val * 100).toFixed(1) + '%</div>';
+      });
+    });
+    html += '</div>';
+    // Prediction row
+    html += '<div class="markov-pred-row"><span>From <b style="color:' + dClr[markov.lastState] + '">' + markov.lastState + '</b> → predict <b style="color:' + dClr[markov.prediction] + '">' + markov.prediction + '</b></span><span style="color:var(--gold)">' + (markov.confidence * 100).toFixed(1) + '%</span></div>';
+    // Row entropy
+    html += '<div style="display:flex;justify-content:space-around;margin-top:8px;font-size:10px;color:var(--text-dim)">';
+    mLabels.forEach(function(l) { html += '<span>' + l + ' entropy: ' + markov.rowEntropy[l].toFixed(3) + '</span>'; });
+    html += '</div>';
+    markovBody.innerHTML = html;
+    markovBadge.className = 'math-card-badge ' + (markov.isPredictable ? 'math-badge-strong' : 'math-badge-weak');
+    markovBadge.textContent = markov.isPredictable ? 'STRUCTURED' : 'RANDOM';
+  } else {
+    markovBody.innerHTML = '<div style="font-size:11px;color:var(--text-dim)">Need 8+ non-zero spins…</div>';
+    markovBadge.className = 'math-card-badge math-badge-weak';
+    markovBadge.textContent = '—';
+  }
+
+  // ── Shannon Entropy ──
+  var shannon = computeShannonEntropyRate(history);
+  var entBody = document.getElementById('ms-entropy-body');
+  var entBadge = document.getElementById('ms-entropy-badge');
+  if (shannon) {
+    var ringClr = shannon.H0norm < 0.85 ? 'var(--green-light)' : shannon.H0norm < 0.95 ? 'var(--gold)' : 'var(--red-light)';
+    var ringBg = shannon.H0norm < 0.85 ? 'rgba(39,174,96,0.15)' : shannon.H0norm < 0.95 ? 'rgba(201,168,76,0.15)' : 'rgba(231,76,60,0.15)';
+    var entCls = shannon.isStructured ? 'math-badge-strong' : 'math-badge-weak';
+    entBadge.className = 'math-card-badge ' + entCls;
+    entBadge.textContent = shannon.regime.replace('_', ' ');
+    entBody.innerHTML =
+      '<div class="entropy-gauge">' +
+      '<div class="entropy-ring" style="background:' + ringBg + ';color:' + ringClr + ';border:2px solid ' + ringClr + '">' + shannon.H0norm.toFixed(2) + '</div>' +
+      '<div class="entropy-details">' +
+      '<div>Normalized Entropy: <b style="color:' + ringClr + '">' + shannon.H0norm.toFixed(4) + '</b> / 1.000</div>' +
+      '<div>Entropy Rate: <b>' + shannon.entropyRate.toFixed(4) + '</b></div>' +
+      '<div>Regime: <b style="color:' + ringClr + '">' + shannon.regime.replace('_', ' ') + '</b></div>' +
+      '<div style="color:var(--text-dim)">' + (shannon.isStructured ? 'Sequence shows exploitable structure' : 'Near-random — limited predictability') + '</div>' +
+      '</div></div>' +
+      '<div style="display:flex;justify-content:space-around;margin-top:8px;font-size:10px">' +
+      ['D1', 'D2', 'D3'].map(function(d) { return '<span style="color:' + dClr[d] + '">' + d + ': ' + (shannon.unigramDist[d] * 100).toFixed(1) + '%</span>'; }).join('') +
+      '</div>';
+  } else {
+    entBody.innerHTML = '<div style="font-size:11px;color:var(--text-dim)">Need 8+ non-zero spins…</div>';
+    entBadge.className = 'math-card-badge math-badge-weak';
+    entBadge.textContent = '—';
+  }
+
+  // ── EWMA ──
+  var ewma = computeEWMA(history);
+  var ewmaBody = document.getElementById('ms-ewma-body');
+  var ewmaBadge = document.getElementById('ms-ewma-badge');
+  if (ewma) {
+    var maxEwma = Math.max(ewma.D1, ewma.D2, ewma.D3, 0.5);
+    ewmaBody.innerHTML = '<div class="ewma-bars">' +
+      ['D1', 'D2', 'D3'].map(function(d) {
+        var pct = (ewma[d] / maxEwma * 100).toFixed(1);
+        var valPct = (ewma[d] * 100).toFixed(1);
+        return '<div class="ewma-bar-row"><span class="ewma-label" style="color:' + dClr[d] + '">' + d + '</span><div class="ewma-track"><div class="ewma-baseline"></div><div class="ewma-fill" style="width:' + pct + '%;background:' + dClr[d] + '"></div><span class="ewma-val">' + valPct + '%</span></div></div>';
+      }).join('') +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--text-dim)"><span>Dominant: <b style="color:' + dClr[ewma.dominant] + '">' + ewma.dominant + '</b></span><span>Divergence: <b>' + (ewma.divergence * 100).toFixed(1) + '%</b></span></div>';
+    var ewmaCls = ewma.divergence > 0.15 ? 'math-badge-strong' : ewma.divergence > 0.08 ? 'math-badge-moderate' : 'math-badge-weak';
+    ewmaBadge.className = 'math-card-badge ' + ewmaCls;
+    ewmaBadge.textContent = ewma.divergence > 0.15 ? 'DIVERGENT' : ewma.divergence > 0.08 ? 'LEANING' : 'BALANCED';
+  } else {
+    ewmaBody.innerHTML = '<div style="font-size:11px;color:var(--text-dim)">Need 6+ non-zero spins…</div>';
+    ewmaBadge.className = 'math-card-badge math-badge-weak';
+    ewmaBadge.textContent = '—';
+  }
+
+  // ── Bayesian Posterior ──
+  var bayes = computeBayesianPosterior(history);
+  var bayesGrid = document.getElementById('ms-bayes-grid');
+  var bayesBadge = document.getElementById('ms-bayes-badge');
+  var bayesDetail = document.getElementById('ms-bayes-detail');
+  if (bayes) {
+    bayesGrid.innerHTML = ['D1', 'D2', 'D3'].map(function(d) {
+      var post = (bayes.posteriors[d] * 100).toFixed(1);
+      var isBest = d === bayes.mapEstimate;
+      var isWorst = d === bayes.leastLikely;
+      var border = isBest ? 'border:1px solid var(--gold)' : isWorst ? 'border:1px solid rgba(231,76,60,0.3)' : 'border:1px solid var(--border)';
+      return '<div class="bayes-card" style="' + border + '"><div class="bayes-prob" style="color:' + dClr[d] + '">' + post + '%</div><div class="zscore-dozen" style="color:' + dClr[d] + '">' + d + '</div><div class="bayes-prior">α=' + bayes.alphas[d] + '</div></div>';
+    }).join('');
+    bayesBadge.className = 'math-card-badge ' + (bayes.concentration > 50 ? 'math-badge-strong' : 'math-badge-moderate');
+    bayesBadge.textContent = 'MAP: ' + bayes.mapEstimate;
+    bayesDetail.textContent = 'Concentration: ' + bayes.concentration.toFixed(0) + ' · Prior: Dirichlet(α=' + bayes.priorAlpha + ') · Reversion candidate: ' + bayes.leastLikely;
+  } else {
+    bayesGrid.innerHTML = '<div class="bayes-card"><div class="bayes-prob" style="color:var(--d1)">—</div><div class="zscore-dozen">D1</div><div class="bayes-prior">prior: 33.3%</div></div><div class="bayes-card"><div class="bayes-prob" style="color:var(--d2)">—</div><div class="zscore-dozen">D2</div><div class="bayes-prior">prior: 33.3%</div></div><div class="bayes-card"><div class="bayes-prob" style="color:var(--d3)">—</div><div class="zscore-dozen">D3</div><div class="bayes-prior">prior: 33.3%</div></div>';
+    bayesBadge.className = 'math-card-badge math-badge-weak';
+    bayesBadge.textContent = '—';
+    bayesDetail.textContent = '';
+  }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -6682,6 +8353,23 @@ function _computeCodedVerdictInner() {
     verdict.colorTrigger = 'Need 10+ non-zero spins for color analysis.';
   }
 
+  // Frame pattern + conflict dampening: if engines conflict, reduce confidence
+  const frameP = analyzeSmallFrame(history, 9);
+  const arb = frameArbitrate(history);
+  if (arb && arb.conflict && verdict.confidence > 30) {
+    // Engines disagree — dampen confidence to prevent weak trends from dominating
+    verdict.confidence = Math.max(15, Math.round(verdict.confidence * 0.65));
+    verdict.trigger += ' ⚠ Engine conflict detected — confidence dampened.';
+  }
+  // If frame pattern agrees with verdict, small boost (only if already meaningful)
+  if (frameP.hasPattern && frameP.predictNext && verdict.recommendDozen) {
+    const verdictDozenLabel = 'D' + verdict.recommendDozen;
+    if (frameP.predictNext === verdictDozenLabel && frameP.confidence >= 40) {
+      verdict.confidence = Math.min(verdict.confidence + 5, 95);
+      verdict.trigger += ` ✓ Frame (${frameP.patternType}) confirms.`;
+    }
+  }
+
   verdict.details = {
     patternConfidence: parseFloat(patternConfidence.toFixed(1)),
     diBonus,
@@ -6718,7 +8406,17 @@ function _computeCodedVerdictInner() {
       weakColor,
       currentStreak: colorStreak,
       currentStreakColor: colorStreakType
-    }
+    },
+    framePattern: {
+      hasPattern: frameP.hasPattern,
+      patternType: frameP.patternType,
+      confidence: frameP.confidence,
+      predictNext: frameP.predictNext,
+      frameSequence: frameP.frameSequence,
+      cyclicTrend: frameP.cyclicTrend
+    },
+    engineConflict: arb ? arb.conflict : false,
+    engineAgreement: arb ? arb.agreement + '/' + arb.totalEngines : null
   };
 
   return verdict;
@@ -7745,17 +9443,199 @@ ${JSON.stringify(compact)}`;
 function getBetAdvice() {
   const compact = buildCompactPayload();
   if (compact.error) { appendErrorMsg(compact.error); return; }
+
+  // Add frame pattern + cyclic trend + arbitrator data
+  const frameAnalysis = analyzeSmallFrame(history, 9);
+  const arbitration = frameArbitrate(history);
+  compact.FRAME_PATTERN = {
+    hasPattern: frameAnalysis.hasPattern,
+    patternType: frameAnalysis.patternType,
+    patternLabel: frameAnalysis.patternLabel,
+    confidence: frameAnalysis.confidence,
+    predictNext: frameAnalysis.predictNext,
+    frameSequence: frameAnalysis.frameSequence,
+    dominant: frameAnalysis.dominant,
+    dominantShare: frameAnalysis.dominantShare,
+    weakest: frameAnalysis.weakest,
+    cycle: frameAnalysis.cycle,
+    streak: frameAnalysis.streak,
+    cyclicTrend: frameAnalysis.cyclicTrend
+  };
+  if (arbitration) {
+    compact.ENGINE_ARBITRATION = {
+      recommendation: arbitration.recommendation,
+      agreement: arbitration.agreement,
+      totalEngines: arbitration.totalEngines,
+      conflict: arbitration.conflict,
+      conflictNote: arbitration.conflictNote
+    };
+  }
+
+  // ── Hot Numbers Analysis ──
+  const hotData = computeHotNumbers(history);
+  compact.HOT_NUMBERS = hotData;
+
+  // Build hot numbers text for prompt
+  const hotOverallText = hotData.overallTop5.map(h => `${h.number}(×${h.count}${h.dozen})`).join(', ');
+  const hotRecentText = hotData.recentTop5.map(h => `${h.number}(×${h.count}${h.dozen})`).join(', ');
+  const risingText = hotData.rising.length > 0
+    ? hotData.rising.map(h => `${h.number}(recent×${h.recentCount} vs overall×${h.overallCount})`).join(', ')
+    : 'none';
+  const dueText = hotData.dueNumbers.length > 0
+    ? hotData.dueNumbers.slice(0, 5).map(h => `${h.number}(gap ${h.gap} spins, ${h.dozen})`).join(', ')
+    : 'none';
+
   const prompt = `TASK: Provide the single best statistical action right now, strictly following CODED_VERDICT.
 
+IMPORTANT — FRAME PATTERN ANALYSIS (small frame, last 9 spins):
+- Frame pattern detected: ${frameAnalysis.hasPattern ? 'YES — ' + frameAnalysis.patternLabel : 'NO — no clear pattern in small frame'}
+${frameAnalysis.predictNext ? '- Frame predicts next: ' + frameAnalysis.predictNext + ' (confidence ' + frameAnalysis.confidence + '%)' : '- No prediction from frame'}
+${frameAnalysis.cyclicTrend.detected ? '- ⚡ CYCLIC TREND: ' + frameAnalysis.cyclicTrend.message : '- Cyclic trend: ' + frameAnalysis.cyclicTrend.message}
+${arbitration ? '- Engine arbitration: ' + arbitration.agreement + '/' + arbitration.totalEngines + ' engines agree on ' + arbitration.recommendation + (arbitration.conflict ? ' ⚠ CONFLICT: ' + arbitration.conflictNote : ' ✓ No major conflict') : ''}
+
+HOT NUMBERS ANALYSIS (from statistics):
+- Overall hottest: ${hotOverallText || 'not enough data'}
+- Recent hottest (last 20): ${hotRecentText || 'not enough data'}
+- Rising numbers (gaining heat recently): ${risingText}
+- Due numbers (longest gap since last hit): ${dueText}
+${hotData.hotInRecommendedDozen.length > 0 ? '- 🔥 Hot numbers in recommended dozen: ' + hotData.hotInRecommendedDozen.map(h => h.number + '(×' + h.count + ')').join(', ') : '- No specific hot numbers in recommended dozen'}
+
 Instructions:
-- Output must be short and decisive, but include 1-2 metric citations (gap/DI/entropy/velocity/significance/harmony/trend) that justify the coded trigger.
-- Reference pattern engine signals when relevant: Markov chain predicts, bigrams/trigrams suggest, cycle detection indicates, streaks point to, alternation suggests, and consensus predicts.
-- If approach is NO_SIGNAL, explicitly advise no bet and explain which triggers failed.
+- Start your answer with the FRAME PATTERN status: "Frame: PATTERN (type)" or "Frame: NO PATTERN".
+- Include a "🔥 Hot Numbers" section: list 3-5 specific numbers most likely to come next, based on frequency + recency + which dozen they belong to.
+- Prioritize numbers that are BOTH hot overall AND rising recently AND fall within the recommended dozen.
+- If a number is "due" (long gap) AND in the recommended dozen, mention it as a secondary pick.
+- If cyclic trend is detected, state the DI cycle phase and timing.
+- If engines conflict, advise caution. If they agree, state high-confidence.
+- Output must be short and decisive, with 1-2 metric citations.
+- If approach is NO_SIGNAL, still list hot numbers but advise no bet on dozen.
 - Still obey the binding rules: copy CODED_VERDICT fields exactly.
 
 DATA PAYLOAD (JSON):
 ${JSON.stringify(compact)}`;
   callAI('What should I bet right now?', prompt);
+}
+
+// ─── HOT NUMBERS ANALYSIS FOR BET ADVICE ─────────────────────
+function computeHotNumbers(hist) {
+  const RED_SET = typeof RED_NUMS !== 'undefined' ? RED_NUMS : new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  const nonZero = hist.filter(x => x !== 0);
+  const getDozenLabel = n => n <= 12 ? ' D1' : n <= 24 ? ' D2' : ' D3';
+
+  if (nonZero.length < 6) {
+    return {
+      overallTop5: [], recentTop5: [], rising: [],
+      dueNumbers: [], hotInRecommendedDozen: [],
+      message: 'Need 6+ non-zero spins'
+    };
+  }
+
+  // Overall frequency (all history, excluding 0)
+  const freqAll = {};
+  for (let i = 1; i <= 36; i++) freqAll[i] = 0;
+  for (const x of nonZero) if (x >= 1 && x <= 36) freqAll[x]++;
+
+  // Recent frequency (last 20 non-zero spins)
+  const recentWindow = Math.min(20, nonZero.length);
+  const recent = nonZero.slice(-recentWindow);
+  const freqRecent = {};
+  for (let i = 1; i <= 36; i++) freqRecent[i] = 0;
+  for (const x of recent) if (x >= 1 && x <= 36) freqRecent[x]++;
+
+  // Overall top 5
+  const overallTop5 = Object.entries(freqAll)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .filter(([, c]) => c > 0)
+    .map(([n, c]) => ({
+      number: parseInt(n), count: c,
+      dozen: getDozenLabel(parseInt(n)),
+      color: RED_SET.has(parseInt(n)) ? 'RED' : 'BLACK'
+    }));
+
+  // Recent top 5
+  const recentTop5 = Object.entries(freqRecent)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .filter(([, c]) => c > 0)
+    .map(([n, c]) => ({
+      number: parseInt(n), count: c,
+      dozen: getDozenLabel(parseInt(n)),
+      color: RED_SET.has(parseInt(n)) ? 'RED' : 'BLACK'
+    }));
+
+  // Rising: numbers with higher recent rate than overall rate
+  const overallRate = nonZero.length > 0 ? 1 / nonZero.length : 0;
+  const recentRate = recentWindow > 0 ? 1 / recentWindow : 0;
+  const rising = [];
+  for (let i = 1; i <= 36; i++) {
+    const oRate = freqAll[i] / (nonZero.length || 1);
+    const rRate = freqRecent[i] / (recentWindow || 1);
+    if (rRate > oRate * 1.3 && freqRecent[i] >= 2) {
+      rising.push({
+        number: i,
+        overallCount: freqAll[i],
+        recentCount: freqRecent[i],
+        dozen: getDozenLabel(i),
+        color: RED_SET.has(i) ? 'RED' : 'BLACK',
+        heatRatio: parseFloat((rRate / (oRate || 0.001)).toFixed(2))
+      });
+    }
+  }
+  rising.sort((a, b) => b.heatRatio - a.heatRatio);
+
+  // Due numbers: longest gap since last appearance (only numbers that have hit before)
+  const dueNumbers = [];
+  for (let i = 1; i <= 36; i++) {
+    if (freqAll[i] === 0) continue; // never hit — don't call them "due"
+    let gap = 0;
+    for (let j = nonZero.length - 1; j >= 0; j--) {
+      if (nonZero[j] === i) break;
+      gap++;
+    }
+    if (gap >= 10) {
+      dueNumbers.push({
+        number: i, gap,
+        dozen: getDozenLabel(i),
+        color: RED_SET.has(i) ? 'RED' : 'BLACK',
+        totalHits: freqAll[i]
+      });
+    }
+  }
+  dueNumbers.sort((a, b) => b.gap - a.gap);
+
+  // Hot numbers in the recommended dozen (from current verdict)
+  let hotInRecommendedDozen = [];
+  const verdict = computeCodedVerdict();
+  if (verdict && verdict.recommendDozen) {
+    const recDoz = verdict.recommendDozen;
+    const dozMin = (recDoz - 1) * 12 + 1;
+    const dozMax = recDoz * 12;
+    hotInRecommendedDozen = Object.entries(freqAll)
+      .filter(([n]) => { const num = parseInt(n); return num >= dozMin && num <= dozMax; })
+      .sort((a, b) => {
+        // Score: overall freq + recent freq boost
+        const scoreA = a[1] + (freqRecent[parseInt(a[0])] || 0) * 2;
+        const scoreB = b[1] + (freqRecent[parseInt(b[0])] || 0) * 2;
+        return scoreB - scoreA;
+      })
+      .slice(0, 4)
+      .filter(([, c]) => c > 0)
+      .map(([n, c]) => ({
+        number: parseInt(n), count: c,
+        recentCount: freqRecent[parseInt(n)] || 0,
+        color: RED_SET.has(parseInt(n)) ? 'RED' : 'BLACK'
+      }));
+  }
+
+  return {
+    overallTop5, recentTop5,
+    rising: rising.slice(0, 5),
+    dueNumbers: dueNumbers.slice(0, 6),
+    hotInRecommendedDozen,
+    totalSpinsAnalyzed: nonZero.length,
+    recentWindow
+  };
 }
 
 // ─── HEATMAP ON NUMBER GRID ──────────────────────────────────
@@ -8103,13 +9983,23 @@ function renderConditionsDashboard() {
     txt('cp-di-dom', '—'); txt('cp-di-weak', '—');
     txt('cp-di-velocity', '—'); txt('cp-di-sig', '—'); txt('cp-di-harmony', '—'); txt('cp-di-trend', '—');
     txt('cp-approach', '—'); txt('cp-bet', '—'); txt('cp-color', '—'); txt('cp-color-conf', '—'); txt('cp-trigger', '—');
+    renderFramePatternDashboard();
+    renderLearningDashboard();
+    renderHotNumbersDashboard();
+    renderAIMonitor();
     return;
   }
 
   const sens = document.getElementById('sensitivity') ? document.getElementById('sensitivity').value : 'reliable';
   const mode = document.getElementById('signalMode') ? document.getElementById('signalMode').value : 'twowindow';
   const result = distortionPersistence(history, sens, mode);
-  if (!result) return; // distortionPersistence can return null if mode needs more data than 13 spins
+  if (!result) {
+    renderFramePatternDashboard();
+    renderLearningDashboard();
+    renderHotNumbersDashboard();
+    renderAIMonitor();
+    return;
+  }
   const dm = result.metrics13 || result.metricsCurr;
   const domIdx = dm.counts.indexOf(Math.max(...dm.counts));
   const weakIdx = dm.counts.indexOf(Math.min(...dm.counts));
@@ -8230,11 +10120,172 @@ function renderConditionsDashboard() {
     txt('cp-pat-markov', '—'); txt('cp-pat-cycle', '—'); txt('cp-pat-streak', '—'); txt('cp-pat-alt', '—');
   }
 
+  // Frame Pattern Dashboard (Small Frame)
+  renderFramePatternDashboard();
+
   // Learning Database Dashboard
   renderLearningDashboard();
 
+  // Hot Numbers by Dozen Dashboard
+  renderHotNumbersDashboard();
+
   // AI Monitor Dashboard
   renderAIMonitor();
+
+  // False Signal Flash Cards
+  renderFalseSignalCards();
+}
+
+function renderHotNumbersDashboard() {
+  const setTxt = (id, v, color) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    if (typeof v === 'string' && !v.includes('<')) e.textContent = v;
+    else e.innerHTML = v;
+    if (color) e.style.color = color;
+  };
+
+  const nonZero = getNonZeroSpins(history);
+  if (nonZero.length < 6) {
+    setTxt('cp-hot-d1', 'Need 6+ spins', 'var(--text-dim)');
+    setTxt('cp-hot-d2', '—', 'var(--text-dim)');
+    setTxt('cp-hot-d3', '—', 'var(--text-dim)');
+    setTxt('cp-hot-rising', '—', 'var(--text-dim)');
+    setTxt('cp-hot-due', '—', 'var(--text-dim)');
+    return;
+  }
+
+  // Frequency per number (all history, no zeros)
+  const freqAll = {};
+  for (let i = 1; i <= 36; i++) freqAll[i] = 0;
+  for (const x of nonZero) if (x >= 1 && x <= 36) freqAll[x]++;
+
+  // Recent frequency (last 20)
+  const recentWin = Math.min(20, nonZero.length);
+  const recent = nonZero.slice(-recentWin);
+  const freqRecent = {};
+  for (let i = 1; i <= 36; i++) freqRecent[i] = 0;
+  for (const x of recent) if (x >= 1 && x <= 36) freqRecent[x]++;
+
+  const chipColor = n => n === 0 ? '#27ae60' : RED_NUMS.has(n) ? '#e74c3c' : '#888';
+
+  // Helper: build chip HTML for a number
+  const chip = (num, count, extra) => {
+    const bg = RED_NUMS.has(num) ? 'rgba(192,57,43,0.25)' : 'rgba(100,100,100,0.2)';
+    const border = RED_NUMS.has(num) ? '#c0392b' : '#555';
+    const col = RED_NUMS.has(num) ? '#e07070' : '#bbb';
+    return `<span style="display:inline-block;padding:1px 5px;margin:1px;border-radius:3px;font-size:10px;border:1px solid ${border};background:${bg};color:${col};font-weight:600;" title="${extra || ''}">${num}<span style="font-size:8px;color:var(--text-dim);margin-left:2px;">×${count}</span></span>`;
+  };
+
+  // Top 3 per dozen
+  const dozens = [
+    { min: 1, max: 12, id: 'cp-hot-d1' },
+    { min: 13, max: 24, id: 'cp-hot-d2' },
+    { min: 25, max: 36, id: 'cp-hot-d3' }
+  ];
+
+  for (const dz of dozens) {
+    const nums = [];
+    for (let i = dz.min; i <= dz.max; i++) {
+      if (freqAll[i] > 0) {
+        // Score: overall + 2x recent (reward recency)
+        nums.push({ num: i, count: freqAll[i], recent: freqRecent[i] || 0, score: freqAll[i] + (freqRecent[i] || 0) * 2 });
+      }
+    }
+    nums.sort((a, b) => b.score - a.score);
+    const top = nums.slice(0, 3);
+    if (top.length === 0) {
+      setTxt(dz.id, 'no hits yet', 'var(--text-dim)');
+    } else {
+      setTxt(dz.id, top.map(t => chip(t.num, t.count, `Recent: ${t.recent}/${recentWin}`)).join(' '));
+    }
+  }
+
+  // Rising numbers
+  const rising = [];
+  for (let i = 1; i <= 36; i++) {
+    const oRate = freqAll[i] / (nonZero.length || 1);
+    const rRate = freqRecent[i] / (recentWin || 1);
+    if (rRate > oRate * 1.3 && freqRecent[i] >= 2) {
+      rising.push({ num: i, count: freqAll[i], recent: freqRecent[i], ratio: rRate / (oRate || 0.001) });
+    }
+  }
+  rising.sort((a, b) => b.ratio - a.ratio);
+  if (rising.length > 0) {
+    setTxt('cp-hot-rising', rising.slice(0, 4).map(r => chip(r.num, r.count, `Rising ×${r.ratio.toFixed(1)}`)).join(' '));
+  } else {
+    setTxt('cp-hot-rising', 'none', 'var(--text-dim)');
+  }
+
+  // Due numbers (longest gap)
+  const due = [];
+  for (let i = 1; i <= 36; i++) {
+    if (freqAll[i] === 0) continue;
+    let gap = 0;
+    for (let j = nonZero.length - 1; j >= 0; j--) {
+      if (nonZero[j] === i) break;
+      gap++;
+    }
+    if (gap >= 10) due.push({ num: i, gap, count: freqAll[i] });
+  }
+  due.sort((a, b) => b.gap - a.gap);
+  if (due.length > 0) {
+    setTxt('cp-hot-due', due.slice(0, 4).map(d => {
+      const bg = RED_NUMS.has(d.num) ? 'rgba(192,57,43,0.15)' : 'rgba(100,100,100,0.12)';
+      const border = '#555';
+      return `<span style="display:inline-block;padding:1px 5px;margin:1px;border-radius:3px;font-size:10px;border:1px solid ${border};background:${bg};color:var(--text-dim);" title="Gap: ${d.gap} spins">${d.num}<span style="font-size:8px;margin-left:2px;">gap${d.gap}</span></span>`;
+    }).join(' '));
+  } else {
+    setTxt('cp-hot-due', 'none', 'var(--text-dim)');
+  }
+}
+
+function renderFramePatternDashboard() {
+  const txt = (id, v, color) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = v;
+    if (color) e.style.color = color;
+  };
+  const domColors = { D1: 'var(--d1)', D2: 'var(--d2)', D3: 'var(--d3)' };
+
+  const fp = analyzeSmallFrame(history, 9);
+
+  if (fp.status === 'NEED_DATA') {
+    txt('cp-fp-status', 'Need data', 'var(--text-dim)');
+    txt('cp-fp-type', '—'); txt('cp-fp-conf', '—'); txt('cp-fp-predict', '—');
+    txt('cp-fp-seq', '—'); txt('cp-fp-cyclic', '—'); txt('cp-fp-agree', '—'); txt('cp-fp-conflict', '—');
+    return;
+  }
+
+  txt('cp-fp-status',
+    fp.hasPattern ? '● YES' : '○ NO',
+    fp.hasPattern ? 'var(--green-light)' : 'var(--text-dim)'
+  );
+  txt('cp-fp-type', fp.patternType, fp.hasPattern ? 'var(--gold)' : 'var(--text-dim)');
+  txt('cp-fp-conf', fp.confidence > 0 ? fp.confidence + '%' : '—', fp.confidence >= 50 ? 'var(--gold)' : 'var(--text-dim)');
+  txt('cp-fp-predict', fp.predictNext || '—', fp.predictNext ? (domColors[fp.predictNext] || 'var(--gold)') : 'var(--text-dim)');
+  txt('cp-fp-seq', fp.frameSequence, 'var(--text-dim)');
+
+  const ct = fp.cyclicTrend;
+  if (ct.detected) {
+    txt('cp-fp-cyclic', `● ${ct.phase} (${ct.changeRate}% rev)`, ct.phase === 'RISING' ? 'var(--red-light)' : 'var(--green-light)');
+  } else if (ct.phase !== 'UNKNOWN') {
+    txt('cp-fp-cyclic', `${ct.phase} (${ct.changeRate}% rev)`, 'var(--text-dim)');
+  } else {
+    txt('cp-fp-cyclic', ct.message, 'var(--text-dim)');
+  }
+
+  // Arbitrator
+  const arb = frameArbitrate(history);
+  if (arb) {
+    txt('cp-fp-agree', `${arb.agreement}/${arb.totalEngines} → ${arb.recommendation}`,
+      arb.agreement >= 3 ? 'var(--green-light)' : arb.agreement >= 2 ? 'var(--gold)' : 'var(--text-dim)');
+    txt('cp-fp-conflict', arb.conflict ? '⚠ YES' : '✓ No', arb.conflict ? 'var(--red-light)' : 'var(--green-light)');
+  } else {
+    txt('cp-fp-agree', '—', 'var(--text-dim)');
+    txt('cp-fp-conflict', '—', 'var(--text-dim)');
+  }
 }
 
 function renderAIMonitor() {
@@ -8341,6 +10392,467 @@ function renderLearningDashboard() {
   const memTurns = Math.floor(aiConversationMemory.length / 2);
   txt('cp-learn-memory', memTurns > 0 ? `${memTurns} turns` : '0', memTurns > 0 ? 'var(--text)' : 'var(--text-dim)');
 }
+
+// ══════════════════════════════════════════════════════════════
+// FALSE SIGNAL IDENTIFIER — Detection Engine
+// Analyzes prediction history to detect when signals are unreliable
+// ══════════════════════════════════════════════════════════════
+
+function detectFalseSignals() {
+  const preds = patternDB.predictions.filter(p => !p.skipped);
+  const cards = [];  // each card = { id, icon, title, value, detail, severity }
+
+  if (preds.length < 5) return cards;
+
+  const total = preds.length;
+  const correct = preds.filter(p => p.correct).length;
+  const overallAcc = correct / total;
+  const recent = preds.slice(-8);
+  const recentCorrect = recent.filter(p => p.correct).length;
+  const recentAcc = recentCorrect / recent.length;
+
+  // ── CARD: Risk Score (always shown if enough data) ──
+  let riskScore = 0;
+  const trapCount = { danger: 0, caution: 0 };
+
+  // ── TRAP 1: Consecutive misses ──
+  let currentMissStreak = 0;
+  for (let i = preds.length - 1; i >= 0; i--) {
+    if (!preds[i].correct) currentMissStreak++;
+    else break;
+  }
+  if (currentMissStreak >= 4) {
+    riskScore += 25;
+    trapCount.danger++;
+    cards.push({
+      id: 'losing-streak', icon: '🔻', title: 'Cold Streak',
+      value: `${currentMissStreak}× Miss`,
+      detail: 'Consecutive misses — signals not aligning with outcomes',
+      severity: 'danger'
+    });
+  } else if (currentMissStreak >= 3) {
+    riskScore += 12;
+    trapCount.caution++;
+    cards.push({
+      id: 'losing-streak', icon: '🔻', title: 'Cold Streak',
+      value: `${currentMissStreak}× Miss`,
+      detail: 'Emerging cold streak — watch next prediction',
+      severity: 'caution'
+    });
+  }
+
+  // ── TRAP 2: High-confidence misses ──
+  const highConfPreds = preds.filter(p => p.confidence >= 60);
+  if (highConfPreds.length >= 3) {
+    const highConfCorrect = highConfPreds.filter(p => p.correct).length;
+    const highConfAcc = highConfCorrect / highConfPreds.length;
+    if (highConfAcc < 0.30) {
+      riskScore += 20;
+      trapCount.danger++;
+      cards.push({
+        id: 'high-conf-miss', icon: '⚡', title: 'Confidence Trap',
+        value: `${(highConfAcc * 100).toFixed(0)}%`,
+        detail: `High-confidence (≥60%) signals hitting only ${(highConfAcc * 100).toFixed(0)}% — confidence is misleading`,
+        severity: 'danger'
+      });
+    } else if (highConfAcc < 0.40) {
+      riskScore += 8;
+      trapCount.caution++;
+      cards.push({
+        id: 'high-conf-miss', icon: '⚡', title: 'Confidence Weak',
+        value: `${(highConfAcc * 100).toFixed(0)}%`,
+        detail: `High-confidence signals underperforming at ${(highConfAcc * 100).toFixed(0)}%`,
+        severity: 'caution'
+      });
+    }
+  }
+
+  // ── TRAP 3: Approach-specific failure ──
+  const approachStats = {};
+  for (const p of preds) {
+    if (!approachStats[p.approach]) approachStats[p.approach] = { total: 0, correct: 0 };
+    approachStats[p.approach].total++;
+    if (p.correct) approachStats[p.approach].correct++;
+  }
+  for (const [app, stats] of Object.entries(approachStats)) {
+    if (stats.total >= 3) {
+      const acc = stats.correct / stats.total;
+      if (acc < 0.20) {
+        riskScore += 15;
+        trapCount.danger++;
+        cards.push({
+          id: 'approach-fail-' + app, icon: '🚫', title: app + ' Failing',
+          value: `${(acc * 100).toFixed(0)}%`,
+          detail: `${app} at ${(acc * 100).toFixed(0)}% over ${stats.total} preds — unreliable approach`,
+          severity: 'danger'
+        });
+      } else if (acc < 0.30) {
+        riskScore += 8;
+        trapCount.caution++;
+        cards.push({
+          id: 'approach-fail-' + app, icon: '⚠', title: app + ' Weak',
+          value: `${(acc * 100).toFixed(0)}%`,
+          detail: `${app} at ${(acc * 100).toFixed(0)}% over ${stats.total} preds — below baseline`,
+          severity: 'caution'
+        });
+      }
+    }
+  }
+
+  // ── TRAP 4: Stuck dozen ──
+  const recentDozens = recent.map(p => p.predictedDozen);
+  const dozenCounts = {};
+  for (const d of recentDozens) dozenCounts[d] = (dozenCounts[d] || 0) + 1;
+  for (const [doz, count] of Object.entries(dozenCounts)) {
+    if (count >= 5) {
+      const dozPreds = recent.filter(p => p.predictedDozen === doz);
+      const dozCorrect = dozPreds.filter(p => p.correct).length;
+      if (dozCorrect / dozPreds.length < 0.25) {
+        riskScore += 15;
+        trapCount.danger++;
+        cards.push({
+          id: 'stuck-dozen', icon: '🔒', title: 'Dozen Lock-in',
+          value: `${doz} ×${count}`,
+          detail: `Locked on ${doz} (${count}/8 recent) but ${dozCorrect} correct — false lock-in`,
+          severity: 'danger'
+        });
+      }
+    }
+  }
+
+  // ── TRAP 5: Pattern consensus mismatch ──
+  const patPreds = preds.filter(p => p.patternConsensus).slice(-10);
+  if (patPreds.length >= 4) {
+    const patWrong = patPreds.filter(p => p.actualDozen !== p.patternConsensus).length;
+    const patFailRate = patWrong / patPreds.length;
+    if (patFailRate >= 0.75) {
+      riskScore += 15;
+      trapCount.danger++;
+      cards.push({
+        id: 'pattern-mismatch', icon: '🔀', title: 'Pattern Noise',
+        value: `${patWrong}/${patPreds.length}`,
+        detail: `Pattern engine wrong ${patWrong}/${patPreds.length} — consensus is noise`,
+        severity: 'danger'
+      });
+    } else if (patFailRate >= 0.60) {
+      riskScore += 7;
+      trapCount.caution++;
+      cards.push({
+        id: 'pattern-mismatch', icon: '🔀', title: 'Pattern Drift',
+        value: `${patWrong}/${patPreds.length}`,
+        detail: `Pattern engine wrong ${patWrong}/${patPreds.length} — unreliable consensus`,
+        severity: 'caution'
+      });
+    }
+  }
+
+  // ── TRAP 6: Accuracy collapse ──
+  if (preds.length >= 10) {
+    const older = preds.slice(-20, -8);
+    if (older.length >= 5) {
+      const olderAcc = older.filter(p => p.correct).length / older.length;
+      const drop = olderAcc - recentAcc;
+      if (drop >= 0.25) {
+        riskScore += 18;
+        trapCount.danger++;
+        cards.push({
+          id: 'accuracy-collapse', icon: '📉', title: 'Regime Shift',
+          value: `−${(drop * 100).toFixed(0)}%`,
+          detail: `Accuracy dropped ${(olderAcc * 100).toFixed(0)}% → ${(recentAcc * 100).toFixed(0)}% — regime change likely`,
+          severity: 'danger'
+        });
+      } else if (drop >= 0.15) {
+        riskScore += 8;
+        trapCount.caution++;
+        cards.push({
+          id: 'accuracy-collapse', icon: '📉', title: 'Accuracy Fading',
+          value: `−${(drop * 100).toFixed(0)}%`,
+          detail: `Declining: ${(olderAcc * 100).toFixed(0)}% → ${(recentAcc * 100).toFixed(0)}% — signals may be stale`,
+          severity: 'caution'
+        });
+      }
+    }
+  }
+
+  // ── Summary card (always first if any traps found) ──
+  riskScore = Math.min(riskScore, 100);
+  if (cards.length > 0) {
+    const sev = riskScore >= 50 ? 'danger' : riskScore >= 25 ? 'caution' : 'ok';
+    cards.unshift({
+      id: 'risk-summary', icon: riskScore >= 50 ? '⚠' : riskScore >= 25 ? '⚡' : '✓', title: 'Signal Risk',
+      value: `${riskScore}/100`,
+      detail: `${trapCount.danger} critical · ${trapCount.caution} caution trap${trapCount.danger + trapCount.caution !== 1 ? 's' : ''}`,
+      severity: sev
+    });
+  }
+
+  return cards;
+}
+
+function renderFalseSignalCards() {
+  const tray = document.getElementById('fsCardsTray');
+  if (!tray) return;
+
+  const cards = detectFalseSignals();
+
+  if (cards.length === 0) {
+    tray.innerHTML = '';
+    return;
+  }
+
+  const sevClass = { danger: 'fs-card-danger', caution: 'fs-card-caution', ok: 'fs-card-ok' };
+
+  tray.innerHTML = cards.map(c => {
+    const cls = sevClass[c.severity] || 'fs-card-ok';
+    const pulse = c.severity === 'danger' ? ' fs-pulse' : '';
+    return `<div class="fs-card ${cls}${pulse}" data-fs-id="${c.id}">
+      <span class="fs-card-icon">${c.icon}</span>
+      <div class="fs-card-title">${c.title}</div>
+      <div class="fs-card-value">${c.value}</div>
+      <div class="fs-card-detail">${c.detail}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── COLLAPSIBLE SIDE-PANEL CARDS ────────────────────────────
+document.querySelector('.ai-side-panel')?.addEventListener('click', function(e) {
+  const header = e.target.closest('.acc-header');
+  if (!header) return;
+  const card = header.closest('.ai-conditions-card');
+  if (card) card.classList.toggle('expanded');
+});
+
+// ─── TOGGLE: API CONFIG ROW ──────────────────────────────────
+(function() {
+  const btn = document.getElementById('btnToggleConfig');
+  const row = document.querySelector('.ai-config-row');
+  if (!btn || !row) return;
+  btn.addEventListener('click', function() {
+    row.classList.toggle('open');
+    btn.classList.toggle('active', row.classList.contains('open'));
+  });
+})();
+
+// ─── TOGGLE: SIDE PANEL ─────────────────────────────────────
+(function() {
+  const btn = document.getElementById('btnTogglePanel');
+  const panel = document.querySelector('.ai-side-panel');
+  const handle = document.getElementById('aiResizeHandle');
+  if (!btn || !panel) return;
+  // Default: visible
+  let panelVisible = true;
+  btn.classList.add('active');
+  btn.addEventListener('click', function() {
+    panelVisible = !panelVisible;
+    panel.classList.toggle('hidden-panel', !panelVisible);
+    if (handle) handle.classList.toggle('hidden-panel', !panelVisible);
+    btn.classList.toggle('active', panelVisible);
+    // When hiding panel, let chat take full width
+    const layout = document.querySelector('.ai-chat-layout');
+    if (layout) {
+      if (!panelVisible) {
+        layout.style.setProperty('--ai-panel-w', '0px');
+      } else {
+        layout.style.removeProperty('--ai-panel-w');
+      }
+    }
+  });
+})();
+
+// ─── DRAG-REORDER CARDS (pointer-based floating) ─────────────
+(function() {
+  const panel = document.querySelector('.ai-side-panel');
+  if (!panel) return;
+
+  let dragCard = null;
+  let floatEl = null;
+  let offsetX = 0, offsetY = 0;
+  let isDragging = false;
+  const DRAG_THRESHOLD = 5;
+  let startX = 0, startY = 0;
+
+  function getCards() {
+    return [...panel.querySelectorAll('.ai-conditions-card')];
+  }
+
+  function clearIndicators() {
+    panel.querySelectorAll('.drag-over-above,.drag-over-below').forEach(c => {
+      c.classList.remove('drag-over-above', 'drag-over-below');
+    });
+  }
+
+  function createFloat(card, x, y) {
+    const rect = card.getBoundingClientRect();
+    const clone = card.cloneNode(true);
+    clone.className = 'ai-conditions-card drag-float';
+    clone.style.width = rect.width + 'px';
+    clone.style.left = (x - offsetX) + 'px';
+    clone.style.top = (y - offsetY) + 'px';
+    document.body.appendChild(clone);
+    return clone;
+  }
+
+  function moveFloat(x, y) {
+    if (!floatEl) return;
+    floatEl.style.left = (x - offsetX) + 'px';
+    floatEl.style.top = (y - offsetY) + 'px';
+  }
+
+  function removeFloat() {
+    if (floatEl) { floatEl.remove(); floatEl = null; }
+  }
+
+  function getDropTarget(y) {
+    const cards = getCards();
+    for (const card of cards) {
+      if (card === dragCard) continue;
+      const rect = card.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (y >= rect.top && y <= rect.bottom) {
+        return { card, position: y < mid ? 'above' : 'below' };
+      }
+    }
+    return null;
+  }
+
+  function onPointerDown(e) {
+    const card = e.target.closest('.ai-conditions-card');
+    if (!card || !panel.contains(card)) return;
+    // Don't interfere with expand/collapse clicks
+    if (e.target.closest('.acc-body')) return;
+    const rect = card.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    dragCard = card;
+    isDragging = false;
+
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+  }
+
+  function onPointerMove(e) {
+    if (!dragCard) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    // Require a small movement before starting drag (prevents accidental drags on click)
+    if (!isDragging) {
+      if (Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
+      isDragging = true;
+      dragCard.classList.add('dragging-card');
+      floatEl = createFloat(dragCard, e.clientX, e.clientY);
+      document.body.style.userSelect = 'none';
+    }
+
+    moveFloat(e.clientX, e.clientY);
+    clearIndicators();
+    const drop = getDropTarget(e.clientY);
+    if (drop) {
+      drop.card.classList.add(drop.position === 'above' ? 'drag-over-above' : 'drag-over-below');
+    }
+  }
+
+  function onPointerUp(e) {
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+
+    if (isDragging) {
+      const drop = getDropTarget(e.clientY);
+      if (drop && drop.card !== dragCard) {
+        if (drop.position === 'above') {
+          drop.card.before(dragCard);
+        } else {
+          drop.card.after(dragCard);
+        }
+      }
+    }
+
+    clearIndicators();
+    removeFloat();
+    if (dragCard) dragCard.classList.remove('dragging-card');
+    dragCard = null;
+    isDragging = false;
+    document.body.style.userSelect = '';
+  }
+
+  panel.addEventListener('pointerdown', onPointerDown);
+})();
+
+// ─── RESIZABLE AI PANEL ───────────────────────────────────
+(function() {
+  const handle = document.getElementById('aiResizeHandle');
+  const layout = document.querySelector('.ai-chat-layout');
+  const panel  = document.querySelector('.ai-side-panel');
+  if (!handle || !layout || !panel) return;
+
+  let dragging = false;
+
+  function updateWideClass() {
+    const pw = panel.offsetWidth;
+    panel.classList.toggle('wide-panel', pw >= 500);
+  }
+
+  handle.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    const layoutRect = layout.getBoundingClientRect();
+    const totalW = layoutRect.width;
+    const mouseX = e.clientX - layoutRect.left;
+    const panelW = Math.max(220, Math.min(totalW - 200, totalW - mouseX));
+    layout.style.setProperty('--ai-panel-w', panelW + 'px');
+    layout.style.setProperty('--ai-chat-fr', '1fr');
+    updateWideClass();
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+
+  // Touch support
+  handle.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    dragging = true;
+    handle.classList.add('dragging');
+  }, { passive: false });
+
+  document.addEventListener('touchmove', function(e) {
+    if (!dragging) return;
+    const touch = e.touches[0];
+    const layoutRect = layout.getBoundingClientRect();
+    const totalW = layoutRect.width;
+    const mouseX = touch.clientX - layoutRect.left;
+    const panelW = Math.max(220, Math.min(totalW - 200, totalW - mouseX));
+    layout.style.setProperty('--ai-panel-w', panelW + 'px');
+    layout.style.setProperty('--ai-chat-fr', '1fr');
+    updateWideClass();
+  }, { passive: false });
+
+  document.addEventListener('touchend', function() {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+  });
+
+  // Double-click to reset
+  handle.addEventListener('dblclick', function() {
+    layout.style.removeProperty('--ai-panel-w');
+    layout.style.removeProperty('--ai-chat-fr');
+    panel.classList.remove('wide-panel');
+  });
+})();
 
 // ─── INIT ────────────────────────────────────────────────────
 renderAll();
